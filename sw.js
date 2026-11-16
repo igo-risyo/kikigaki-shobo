@@ -1,5 +1,5 @@
 // ききがき書房: アプリの本体を端末に保存して、電波がなくても開けるようにする
-const CACHE = 'kikigaki-v2';
+const CACHE = 'kikigaki-v3';
 const SHELL = ['./', 'index.html', 'land.js', 'web-llm.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('kikigaki-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
