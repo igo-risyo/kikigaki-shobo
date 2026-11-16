@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ききがき書房</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 太平洋が真ん中の世界地図を歩く。画面は地図帳の色で一つの世界に固定。本だけ明朝の縦組み。 */
+  --sea:#4f8fb8; --land:#cfe0a6; --paper:#fbf8ee; --ink:#27304a; --muted:#666e88;
+  --ai:#3d5a99; --obi:#f0b429; --line:#dcd6c2;
+  --f-body:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+  --f-book:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-weight:500;font-size:16px;line-height:1.75;-webkit-text-size-adjust:100%}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--ai);outline-offset:2px}
+.app{max-width:1100px;margin:0 auto;padding:0 16px 24px}
+header.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 20px;padding:14px 0 10px}
+.brand{font-weight:700;font-size:22px;letter-spacing:.08em;margin:0}
+.brand small{font-weight:500;font-size:12px;color:var(--muted);margin-left:12px;letter-spacing:.04em}
+.where{margin:0;font-size:13px;color:var(--muted)}
+
+.stage{position:relative;height:min(76vh,660px);min-height:440px;border:3px solid var(--ink);border-radius:18px;overflow:hidden;background:var(--sea)}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:pointer}
+.hud{position:absolute;z-index:2}
+.hud.tl{top:12px;left:12px;right:66px;font-size:13px;background:rgba(251,248,238,.92);border:2px solid var(--ink);border-radius:12px;padding:6px 12px;max-width:26em}
+.zoom{position:absolute;z-index:2;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:42px;height:42px;border-radius:999px;border:2px solid var(--ink);background:var(--paper);font-weight:700;font-size:20px;line-height:1;cursor:pointer}
+.hud.bl{left:12px;bottom:12px}.hud.br{right:12px;bottom:12px}
+.hud.bc{left:50%;bottom:14px;transform:translateX(-50%)}
+.btn{background:var(--ink);color:var(--paper);border:2px solid var(--ink);padding:8px 20px;border-radius:999px;cursor:pointer;font-weight:700}
+.btn.obi{background:var(--obi);color:var(--ink)}
+.btn.ghost{background:var(--paper);color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.hudbtn{display:flex;align-items:center;gap:6px;background:var(--paper);border:2px solid var(--ink);border-radius:999px;padding:6px 16px 6px 10px;font-weight:700;cursor:pointer}
+.hudbtn svg{width:30px;height:30px}
+.hudbtn .dot{position:absolute;top:-6px;right:-4px;background:var(--obi);border:2px solid var(--ink);border-radius:999px;min-width:22px;height:22px;font-size:12px;line-height:18px;text-align:center}
+.hudbtn.bl{padding-left:16px}
+
+/* 会話 */
+.dialog{position:absolute;z-index:3;left:10px;right:10px;bottom:10px;max-height:calc(100% - 20px);overflow:auto;background:var(--paper);border:3px solid var(--ink);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.dhead{display:flex;align-items:center;gap:12px}
+.dhead canvas{width:84px;height:84px;flex:none}
+.dhead b{font-size:18px}
+.dhead .sub{font-size:12px;color:var(--muted)}
+.tag{display:inline-block;background:var(--obi);border-radius:999px;padding:0 10px;font-size:12px;font-weight:700;margin-left:8px}
+.dhead .x{margin-left:auto}
+.log{display:flex;flex-direction:column;gap:8px}
+.m{white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 14px;border-radius:16px;max-width:90%}
+.m.a{background:#fff;border:2px solid var(--line);border-bottom-left-radius:4px;align-self:flex-start}
+.m.u{background:var(--ai);color:#fff;border-bottom-right-radius:4px;align-self:flex-end}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:#fff;border:2px solid var(--ai);color:var(--ai);border-radius:999px;padding:3px 14px;cursor:pointer;font-size:14px;font-weight:700}
+.chip:hover{background:var(--ai);color:#fff}
+.say{display:flex;gap:8px;align-items:flex-end}
+.say textarea{flex:1}
+input[type=text],textarea,select{background:#fff;border:2px solid var(--line);border-radius:12px;padding:8px 12px;width:100%;line-height:1.6}
+textarea{resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+label.chk{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+label.chk input{margin-top:6px;flex:none}
+
+/* 全画面の紙 */
+.sheet{position:fixed;inset:0;z-index:10;background:var(--paper);overflow:auto}
+.sheet .in{max-width:860px;margin:0 auto;padding:20px 16px 56px;display:flex;flex-direction:column;gap:20px}
+.shead{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.shead svg{width:60px;height:60px}
+.shead h2{font-size:21px;margin:0;line-height:1.4}
+.shead .x{margin-left:auto}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{background:#fff;border:2px solid var(--line);border-radius:999px;padding:4px 18px;font-weight:700;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.lead{color:var(--muted);font-size:14px;max-width:40em;margin:0}
+.note{font-size:13px;color:var(--muted);border-left:4px solid var(--obi);padding:2px 0 2px 12px;max-width:44em;margin:0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.card{background:#fff;border:2px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.card h3{margin:0;font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.pickb{background:#fff;border:2px solid var(--line);border-radius:16px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:700}
+.pickb[aria-pressed="true"]{border-color:var(--ink);background:#fff7dc}
+.pickb canvas{width:96px;height:96px}
+.gob{text-align:left;align-items:flex-start;padding:12px 14px}
+.gob small{font-weight:500;color:var(--muted)}
+.fumi{display:flex;gap:10px;align-items:flex-end}
+.fumi svg{width:40px;height:40px;flex:none}
+.meter{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.meter i{flex:1;max-width:240px;height:10px;border:2px solid var(--ink);border-radius:999px;overflow:hidden;background:#fff}
+.meter i b{display:block;height:100%;background:var(--obi)}
+.tategaki{writing-mode:vertical-rl;overflow-x:auto;height:min(66vh,540px);background:#fff;border:2px solid var(--ink);border-radius:6px;padding:28px 26px;font-family:var(--f-book);font-size:17px;line-height:2.1}
+.tategaki h3{font-size:22px;margin:0 0 0 1.4em;letter-spacing:.14em}
+.tategaki h4{font-size:17px;margin:2em 1em 0 .6em;color:var(--ai)}
+.tategaki p{margin:0;text-indent:1em;white-space:pre-wrap}
+.shelfbox{overflow-x:auto;padding-top:10px}
+.shelf{display:flex;align-items:flex-end;gap:5px;min-width:min-content;padding:0 14px;border-bottom:12px solid var(--ink);min-height:240px}
+.spine{writing-mode:vertical-rl;font-family:var(--f-book);font-weight:700;font-size:15px;letter-spacing:.14em;color:#fff;background:var(--ai);border:none;border-radius:3px 3px 0 0;padding:14px 0 30px;width:50px;height:214px;cursor:pointer;display:flex;align-items:center;position:relative;overflow:hidden;white-space:nowrap}
+.spine span{overflow:hidden;text-overflow:ellipsis;max-height:100%}
+.spine::after{content:"";position:absolute;left:0;right:0;bottom:0;height:24px;background:var(--obi)}
+.spine.s1{background:var(--ink);height:228px;width:46px}.spine.s2{background:#5a7a4a;height:200px;width:56px}.spine.s3{background:#8a5a78;height:220px}
+.spine[aria-pressed="true"]{transform:translateY(-10px)}
+.pen{color:var(--muted);font-size:14px}
+dl.memo{display:grid;grid-template-columns:8em 1fr;gap:6px 14px;margin:0;font-size:14px}
+dl.memo dt{color:var(--muted)}dl.memo dd{margin:0}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 20px;border-radius:999px;font-size:14px;max-width:calc(100% - 32px);display:none;z-index:20}
+[hidden]{display:none!important}
+@media (max-width:560px){.brand small{display:block;margin:0}.say{flex-direction:column;align-items:stretch}dl.memo{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <p class="brand">ききがき書房<small>世界を歩いて、話して、いつのまにか一冊に</small></p>
+    <p class="where" id="where" aria-live="polite"></p>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="cv" tabindex="0" aria-label="世界地図。矢印キーかタップで歩きます"></canvas>
+    <div class="hud tl" id="hint">矢印キーか、行きたい場所のタップで歩けます。＋−やホイール、ピンチで地図を拡大・縮小。拡大すると日本各地の名所が現れます。住人に近づくと声をかけてきます。</div>
+    <div class="zoom"><button type="button" id="zin" aria-label="地図を拡大">＋</button><button type="button" id="zout" aria-label="地図を縮小">−</button></div>
+    <button class="hudbtn hud bl" id="goBtn" type="button">行き先</button>
+    <button class="btn obi hud bc" id="talkBtn" type="button" hidden></button>
+    <button class="hudbtn hud br" id="fumiBtn" type="button"></button>
+    <div class="dialog" id="dialog" hidden></div>
+  </div>
+</div>
+<div class="sheet" id="sheet" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="land.js"></script>
+<script>
+/* ================= 設定 ================= */
+const PX = 12, SEAM = 30, LAT0 = 80, W = 360 * PX, H = 140 * PX, INK = '#27304a';
+const wx = lon => (((lon + SEAM) % 360 + 360) % 360) * PX, wy = lat => (LAT0 - lat) * PX;
+const AUTHOR_RATE = 0.7, PRICES = [300, 500, 800];
+const NEED_TURNS = 8, NEED_CHARS = 800, LEARN_EVERY = 5, REBUILD_EVERY = 6;
+
+/* 会話も本も、この同じ文章エンジン(指針+学んだメモ)で書く */
+const ENGINE = `【ききがきエンジンの文章指針】
+あなたは聞き書きアプリ「ききがき書房」に組み込まれた、文章専門のAI。会話のせりふも、本の原稿も、この指針で書く。
+- 平易な日本語。具体的な名詞と動詞。一文は短く。決まり文句、大げさな形容、説教を避ける。
+- 語り手の言葉づかいを尊重し、本人が使った言い回しは生かす。語り手について学んだメモがあれば、呼び名・話し方・好みに合わせる。
+- 語り手が述べていない事実を作らない。
+- AIであることは隠さない。恋人や人間の友だちの代わりのようには振る舞わない。
+- 命や安全に関わる深刻な悩みが出たら、問いをやめ、身近な信頼できる人や専門の相談窓口に話すことをやさしく勧める。`;
+
+const ANGLES = ['ある一場面をくわしく', 'そこにいた人のこと', '音・匂い・手ざわり', '数字(何歳、何年、何回)', 'もしも別の道を選んでいたら', '最初の一回', 'いちばん最近のこと', '誰かに言われたひとこと', 'いまの自分から見ると', 'ささいで小さなこと', 'そのとき体はどうだったか', 'その場所の景色にたとえると'];
+
+const PLACES = [
+  { id:'fuji', need:0, name:'富士山', country:'日本', lon:138.73, lat:35.36, theme:'今日の出来事', guide:'今日あったこと、食べたもの、会った人、いまの気分',
+    npc:{ name:'ゆず', kind:'ニホンザル', voice:'一人称「あたし」。温泉好きでのんびり。「〜だねえ」「〜かい？」', sp:{ body:'#a08a70', faceBig:1, face:'#e08878', ear:'round', earS:.8, earIn:'#e08878', belly:'#cdbfa8', nz:'dot' } },
+    facts:'日本一高い山(3776m)。山頂のご来光、ふもとの温泉、夏だけの登山シーズン、雲の上に出る頂',
+    qs:['おや、いらっしゃい。今日のお日さまはもう見たかい？ きみの今日は、どんなふうに始まった？', 'ふもとの湯につかりながら聞きたいねえ。今日いちばん「ふう」と息をついたのは、いつだった？'] },
+  { id:'eiffel', need:0, name:'エッフェル塔', country:'フランス', lon:2.29, lat:48.86, theme:'うれしかったこと・好きなもの', guide:'最近うれしかったこと、好きなもの、ときめくもの、自慢したいこと',
+    npc:{ name:'ミレイユ', kind:'ネコ', voice:'一人称「あたし」。気まぐれでおしゃれ好き。「〜じゃない？」「〜よね」', sp:{ body:'#70758c', face:'#8d92a8', ear:'tri', earIn:'#c9a3ad', iris:'#e0a030', nz:'tri', whisk:1, tail:'thin' } },
+    facts:'建った当時は不評だったが、いまは街の顔。夜は毎正時にきらめく。パリの街を一望できる。ふもとの芝生でピクニック',
+    qs:['この塔、できた頃は嫌われてたのよ。いまは皆のお気に入り。ねえ、あなたの最近のお気に入りって何？', 'もうすぐ塔がきらきら光る時間よ。最近、あなたの心がきらっとした瞬間ってあった？'] },
+  { id:'opera', need:0, name:'シドニー・オペラハウス', country:'オーストラリア', lon:151.21, lat:-33.86, theme:'楽しみ・趣味', guide:'趣味、好きな音楽や本、休みの日の過ごし方、夢中になったもの',
+    npc:{ name:'マチルダ', kind:'コアラ', voice:'一人称「わたし」。マイペースで聞き上手。「〜なんだあ」「〜するの？」', sp:{ body:'#9c9ea3', face:'#b9bbc0', belly:'#e4e4e6', ear:'big', earS:.85, earIn:'#f1f1f1', nz:'big', nose:.1 } },
+    facts:'帆を重ねたような白い屋根。港に面した劇場で、毎晩どこかの部屋で音楽が鳴る。完成まで十四年かかった',
+    qs:['今夜もあの屋根の下で音楽が鳴るんだあ。きみが最近よく聴いてる曲とか、夢中なことって何？', 'わたしは木の上で昼寝するのが趣味。きみは休みの日、何してるときがいちばん楽しいの？'] },
+  { id:'liberty', need:0, name:'自由の女神', country:'アメリカ', lon:-74.04, lat:40.69, theme:'これからの目標・夢', guide:'やってみたいこと、なりたい姿、一年後・十年後、最初の一歩',
+    npc:{ name:'ペニー', kind:'ハイイロリス', voice:'一人称「あたい」。元気で前向き、せっかち。「〜しようよ！」「〜なの？」', sp:{ body:'#978d86', face:'#c9c1ba', belly:'#f3f0ec', ear:'tri', earS:.7, nz:'tri', tail:'bushy' } },
+    facts:'海を渡ってきた人々が最初に見た像。右手にたいまつ、左手に銘板。フランスからの贈り物。港の入り口に立つ',
+    qs:['昔ここに着いた人たちは、この像を見て「さあ、これからだ」って思ったんだって！ きみの「これから」は何？', 'あのたいまつ、ずっと先を照らしてるんだ。一年後のきみに、何を照らしててほしい？'] },
+  { id:'wall', need:3, name:'万里の長城', country:'中国', lon:116.57, lat:40.43, theme:'続けてきたこと・仕事', guide:'仕事や習いごと、長く続けていること、積み重ねてきた努力',
+    npc:{ name:'ロン', kind:'ジャイアントパンダ', voice:'一人称「わし」。おっとりした職人肌。「〜じゃのう」「〜かね？」', sp:{ body:'#f6f5ef', ear:'round', earC:'#2b2b33', limb:'#2b2b33', pat:'panda', nz:'big', nose:.07 } },
+    facts:'何百年もかけて石を積み、総延長は二万キロを超える。山の尾根をどこまでも続く。見張り台が点々と並ぶ',
+    qs:['この壁はのう、一つずつ石を積んでここまで伸びたんじゃ。きみがこつこつ積んできたものは、何かね？', '見張り台から道を眺めとった。きみの仕事の一日は、何から始まるんじゃ？'] },
+  { id:'rio', need:3, name:'コルコバードのキリスト像', country:'ブラジル', lon:-43.21, lat:-22.95, theme:'友だち・仲間', guide:'親しい友人、仲間との思い出、出会い方、最近会っていない人',
+    npc:{ name:'ボア', kind:'カピバラ', voice:'一人称「おいら」。誰とでも仲よくなる、おだやかな性格。「〜だよお」「〜かい？」', sp:{ body:'#a8763f', face:'#c2925a', ear:'round', earS:.6, nz:'long' } },
+    facts:'丘の上で両腕を広げて街を見下ろす像。ふもとには浜辺が続き、カーニバルでは街じゅうが踊る。カピバラは他の動物とも並んでくつろぐ',
+    qs:['あの像、誰でも迎えるみたいに腕を広げてるだろお。きみが腕を広げて迎えたい友だちって、誰だい？', 'おいらの背中には、よく鳥が乗って休むんだよお。きみが一緒にいて楽な相手は、どんな人？'] },
+  { id:'kili', need:6, name:'キリマンジャロ', country:'タンザニア', lon:37.35, lat:-3.07, theme:'子どもの頃・原点', guide:'幼い頃の記憶、ふるさと、家の様子、好きだった遊び',
+    npc:{ name:'テンボ', kind:'アフリカゾウ', voice:'一人称「ぼく」。大らかで物覚えがいい。「〜なんだなあ」「〜だったの？」', sp:{ body:'#9aa3ad', ear:'big', earIn:'#c4b0ae', nz:'trunk' } },
+    facts:'アフリカでいちばん高い山。赤道の近くなのに頂に雪がある。ふもとのサバンナをゾウの群れが歩く。ゾウは昔のことをよく覚えている',
+    qs:['ゾウはね、子どもの頃に歩いた道をずっと覚えてるんだなあ。きみが小さい頃によく歩いた道は、どんな道だった？', 'あの雪は赤道の近くでも消えないんだ。きみの中で、子どもの頃から変わってないものって何？'] },
+  { id:'angkor', need:6, name:'アンコール・ワット', country:'カンボジア', lon:103.87, lat:13.41, theme:'学生時代・学んだこと', guide:'学校、部活、先生、勉強や修行、教わったこと',
+    npc:{ name:'ソカー', kind:'スイギュウ', voice:'一人称「わたし」。まじめで面倒見のいい先生役。「〜でしたか」「〜ですね」', sp:{ body:'#5d5863', face:'#77727d', ear:'flop', horns:1, nz:'long' } },
+    facts:'密林の中の石の大寺院。壁一面に物語の浮き彫りが続く。朝日が塔の後ろから昇る。長く僧たちが学んだ場所',
+    qs:['ここの壁には、物語が一枚ずつ彫ってあるのですよ。あなたの学生時代を一枚彫るなら、どの場面でしょう', '朝日が塔のうしろから昇ります。あなたに何かを教えてくれた人で、最初に浮かぶのは誰ですか'] },
+  { id:'giza', need:9, name:'ギザのピラミッド', country:'エジプト', lon:31.13, lat:29.98, theme:'過去の後悔', guide:'やり直したいこと、言えなかったこと、選ばなかった道。責めずに聞く',
+    npc:{ name:'ハーリド', kind:'ヒトコブラクダ', voice:'一人称「わたし」。物静かで急がない語り部。「〜だったのだね」「〜だろうか」', sp:{ body:'#cfa56a', face:'#e2c494', ear:'round', earS:.55, neck:.42, hump:1, nz:'long' } },
+    facts:'四千五百年前の石の墓。砂に埋もれても形が残る。夜は星がよく見える。砂漠を渡る隊商の道',
+    qs:['四千年たっても、ここには残っているものがある。きみの中に、ずっと残っている「あのときこうしていれば」は、あるだろうか', '砂の上の足あとは風で消えるが、消えないものもある。あのとき言えなかった言葉が、きみにはあるかい'] },
+  { id:'canyon', need:9, name:'グランドキャニオン', country:'アメリカ', lon:-112.11, lat:36.11, theme:'失敗談・笑い話', guide:'やらかしたこと、恥ずかしかったこと、いま思うと笑える話',
+    npc:{ name:'ダスティ', kind:'コヨーテ', voice:'一人称「おれ」。陽気でよく笑う。「〜だろ？」「〜ってか！」', sp:{ body:'#c49a6a', face:'#f1e3cc', belly:'#f1e3cc', ear:'tri', earS:1.15, earIn:'#e9c9a8', iris:'#c98a2a', nz:'tri', tail:'brush' } },
+    facts:'川が何百万年もかけて削った深い谷。地層がしま模様に重なる。叫ぶとこだまが返る。夕日で岩が真っ赤になる',
+    qs:['ここで叫ぶと、こだまが笑って返ってくるんだぜ。きみの「いま思うと笑える失敗」、一個聞かせてくれよ', 'この谷も、川がちょっとずつ削った失敗作みたいなもんだろ？ きみが最近やらかしたことって何だ？'] },
+  { id:'taj', need:12, name:'タージ・マハル', country:'インド', lon:78.04, lat:27.17, theme:'大切な人', guide:'家族、友人、恩人、いま会いたい人、もう会えない人',
+    npc:{ name:'ラニ', kind:'ベンガルトラ', voice:'一人称「わたくし」。しとやかで情が深い。「〜ですのね」「〜かしら」', sp:{ body:'#e8952e', face:'#fff3df', belly:'#fff3df', ear:'round', earS:.8, earIn:'#fff3df', pat:'stripes', iris:'#d9b23a', nz:'tri', whisk:1, tail:'thin' } },
+    facts:'皇帝が亡き妃のために建てた白い大理石の霊廟。朝・昼・夕で色が変わって見える。水面に映る左右対称の姿',
+    qs:['この白い建物は、ある人がたった一人を想って建てましたの。あなたが真っ先に思い浮かべる人は、どなたかしら', '夕方になると壁が桃色に見えますのよ。最近、誰かと交わした言葉で、心に残っているものはあって？'] },
+  { id:'cape', need:12, name:'テーブルマウンテン', country:'南アフリカ', lon:18.42, lat:-33.96, theme:'旅・忘れられない景色', guide:'旅行、引っ越し、初めて行った場所、目に焼きついた景色',
+    npc:{ name:'ジジ', kind:'ミーアキャット', voice:'一人称「ぼく」。好奇心が強く、いつも遠くを見ている。「〜だったの！？」「〜教えて！」', sp:{ body:'#c9a877', face:'#e6d2ab', belly:'#e6d2ab', ear:'round', earS:.5, earC:'#4a3b2c', pat:'mask', neck:.14, nz:'tri' } },
+    facts:'てっぺんが平らな山。雲がテーブルクロスのようにかかる。大陸の南の端に近く、二つの海が出会う岬がある',
+    qs:['ぼくは毎日立って遠くを見てるんだ！ きみがこれまで見た景色で、いちばん遠くまで見えたのはどこ？', 'ここは大陸の端っこなんだよ。きみが「遠くまで来たなあ」って思った場所、教えて！'] },
+  { id:'machu', need:15, name:'マチュピチュ', country:'ペルー', lon:-72.54, lat:-13.16, theme:'分かれ道・乗り越えたこと', guide:'人生の転機、大変だった時期、決断、助けてくれたもの',
+    npc:{ name:'インティ', kind:'アルパカ', voice:'一人称「ぼく」。素朴で粘り強い山育ち。「〜だったんだね」「〜かな」', sp:{ body:'#efe3cc', face:'#f8f1e2', ear:'tri', earS:.75, neck:.36, fluff:1, nz:'long' } },
+    facts:'標高二千四百メートルの尾根に築かれたインカの都。長く人に知られず眠っていた。急な石段と段々畑。朝は霧に包まれ、晴れると現れる',
+    qs:['ここへ来る道はね、息が切れる石段ばかりなんだ。きみの人生で、いちばん息が切れた坂道はどこだった？', '霧が晴れると急に街が見えるんだよ。きみにも、ふっと先が見えた瞬間ってあったかな'] },
+  { id:'colosseum', need:15, name:'コロッセオ', country:'イタリア', lon:12.49, lat:41.89, theme:'勝負・競い合ったこと', guide:'試合、試験、ライバル、勝った日と負けた日、悔しさ',
+    npc:{ name:'ルーポ', kind:'オオカミ', voice:'一人称「おれ」。誇り高いが面倒見がいい。「〜だったか」「〜だな」', sp:{ body:'#8c8f98', face:'#e9e6e2', belly:'#d9d7d4', ear:'tri', earIn:'#c9c2c0', iris:'#d9b23a', nz:'tri', tail:'brush' } },
+    facts:'二千年前の円形闘技場。五万人が勝負を見守った。いまは半分崩れた壁が残る。ローマはオオカミに育てられた双子の伝説の街',
+    qs:['ここでは昔、五万人が一つの勝負を見つめた。おまえがいちばん緊張した勝負は、いつだった', '壁は半分崩れても、まだ立っている。負けたあと、おまえはどうやって立ち直ってきた'] },
+  { id:'iceland', need:18, name:'オーロラの丘', country:'アイスランド', lon:-19.0, lat:64.5, theme:'感謝していること', guide:'ありがとうを言いたい人、恵まれたと思うこと、助けられた出来事',
+    npc:{ name:'ノルン', kind:'ホッキョクギツネ', voice:'一人称「わたし」。静かで澄んだ話し方。「〜なのね」「〜かしら」', sp:{ body:'#eef1f4', face:'#ffffff', ear:'tri', earS:.7, earIn:'#d9cfd2', iris:'#c9952e', nz:'tri', whisk:1, tail:'brush' } },
+    facts:'冬の夜空に緑の光の帯が揺れる。火山と氷河が隣り合う島。地面から湯が噴き出す。夏は夜も日が沈まない',
+    qs:['あの光はね、見ようとして見られるものじゃないの。あなたが「恵まれていた」と思う出来事は何かしら', 'ここは氷の下に火があるのよ。寒かったとき、あなたをあたためてくれたのは誰だった？'] },
+  { id:'moai', need:21, name:'モアイ像', country:'イースター島', lon:-109.35, lat:-27.12, theme:'悩み・不安', guide:'いま気がかりなこと、将来の不安、眠れない夜に考えること。解決を急がない',
+    npc:{ name:'ホヌ', kind:'アオウミガメ', voice:'一人称「わし」。ゆっくり、決して急かさない。「〜じゃなあ」「〜かのう」', sp:{ body:'#9ab07a', face:'#b9cc9a', belly:'#e3d7a6', pat:'shell', shell:'#4f7a55', ear:'none', nz:'dot' } },
+    facts:'絶海の孤島に立つ石像。ほとんどが海に背を向け、村のほうを見守っている。いちばん近い有人島まで二千キロ。黙って立ちつづける',
+    qs:['この石たちはのう、何も言わずに聞いてくれるんじゃ。きみが最近、誰にも言わずに抱えとることはあるかのう', '海の真ん中は静かでなあ。夜、ふと考えてしまうことは、きみにもあるかのう'] }
+].map(p => ({ ...p, x: wx(p.lon), y: wy(p.lat) }));
+
+/* ---- 追加の名所64か所と、地図に載らない「かくれ場所」8か所 ---- */
+const VO = {
+  a:'一人称「ぼく」。素直で元気。「〜だよ」「〜なの？」', b:'一人称「わたし」。おだやかで聞き上手。「〜なんだね」「〜かな」', c:'一人称「おいら」。のんびり屋。「〜だよお」「〜かい？」',
+  d:'一人称「わし」。年配で味がある。「〜じゃのう」「〜かね」', e:'一人称「あたし」。さっぱりして気が強い。「〜でしょ」「〜なわけ？」', f:'一人称「おれ」。ぶっきらぼうだが優しい。「〜だな」「〜だろ」',
+  g:'一人称「わたくし」。上品でていねい。「〜ですのね」「〜かしら」', h:'一人称「ぼく」。物静かで考え深い。「〜だろうか」「〜だね」' };
+const SPX = {
+  deer:['シカ','b',{ body:'#b98a5a', face:'#e9d3b0', belly:'#f1e3cc', ear:'long', earS:.6, horns:1, nz:'long' }],
+  brownbear:['ヒグマ','f',{ body:'#7a5236', face:'#b98d62', ear:'round', earIn:'#b98d62', nz:'big', nose:.08 }],
+  dog:['イヌ','a',{ body:'#c9a070', face:'#f6ead4', belly:'#f6ead4', ear:'tri', earS:.8, nz:'big', nose:.07, tail:'brush' }],
+  magpie:['カササギ','e',{ body:'#23283a', belly:'#ffffff', ear:'none', iris:'#f4f4f4', nz:'beak', beak:'#3a3a44', limb:'#3d5a99' }],
+  redpanda:['レッサーパンダ','a',{ body:'#b5532a', face:'#fff6ea', ear:'tri', earS:.7, earC:'#fff6ea', limb:'#3a2a22', nz:'tri', tail:'bushy' }],
+  monkey:['サル','a',{ body:'#9a8468', faceBig:1, face:'#e9c9a8', ear:'round', earS:.8, earIn:'#e9c9a8', belly:'#cdbfa8', nz:'dot' }],
+  ibis:['トキ','g',{ body:'#fbf3ef', faceBig:1, face:'#e8695a', belly:'#fbe3dc', ear:'none', nz:'beak', beak:'#3a3a44', beakL:2.2, beakW:.6 }],
+  yak:['ヤク','d',{ body:'#3f3632', face:'#6a5d55', ear:'flop', horns:1, fluff:1, nz:'long' }],
+  blackbear:['ツキノワグマ','f',{ body:'#2e2c33', face:'#8a7a66', belly:'#f1ead9', ear:'round', nz:'big', nose:.08 }],
+  buffalo:['スイギュウ','c',{ body:'#5d5863', face:'#77727d', ear:'flop', horns:1, nz:'long' }],
+  gibbon:['テナガザル','a',{ body:'#e6d6b4', faceBig:1, face:'#3a3230', ear:'none', iris:'#c98a2a', nz:'dot' }],
+  otter:['カワウソ','a',{ body:'#7a5a44', face:'#d9c2a4', belly:'#d9c2a4', ear:'round', earS:.5, nz:'big', nose:.07, whisk:1, tail:'thin' }],
+  orangutan:['オランウータン','d',{ body:'#c9632a', faceBig:1, face:'#8a6a58', ear:'none', nz:'dot' }],
+  horse:['ウマ','f',{ body:'#8a5a3a', face:'#a87a56', ear:'tri', earS:.6, neck:.3, nz:'long', tail:'thin' }],
+  seal:['アザラシ','b',{ body:'#8f98a6', face:'#b9c0ca', belly:'#d9dde3', ear:'none', nz:'big', nose:.07, whisk:1 }],
+  donkey:['ロバ','c',{ body:'#8f8a86', face:'#e9e4dc', belly:'#e9e4dc', ear:'long', earS:.8, neck:.2, nz:'long' }],
+  camel2:['フタコブラクダ','d',{ body:'#b98a54', face:'#d9b98a', ear:'round', earS:.55, neck:.4, hump:1, fluff:1, nz:'long' }],
+  elephant:['アジアゾウ','d',{ body:'#8f959c', ear:'big', earS:.8, earIn:'#c4b0ae', nz:'trunk' }],
+  turtle:['ウミガメ','d',{ body:'#9ab07a', face:'#b9cc9a', belly:'#e3d7a6', pat:'shell', shell:'#4f7a55', ear:'none', nz:'dot' }],
+  falcon:['ハヤブサ','f',{ body:'#5a6478', faceBig:1, face:'#f1ede4', belly:'#f1ede4', ear:'none', iris:'#f0b429', nz:'beak', beak:'#f0b429', beakW:.8 }],
+  redfox:['キツネ','e',{ body:'#d9722e', face:'#fff3e0', belly:'#fff3e0', ear:'tri', earIn:'#3a2a22', iris:'#c98a2a', nz:'tri', whisk:1, tail:'brush' }],
+  gull:['カモメ','e',{ body:'#f6f6f4', belly:'#ffffff', ear:'none', nz:'beak', beak:'#f0b429', limb:'#f0b429' }],
+  parakeet:['インコ','a',{ body:'#6fbf4a', faceBig:1, face:'#8fd66a', belly:'#b9e08a', ear:'none', nz:'beak', beak:'#d65a70', beakW:.9 }],
+  highland:['ハイランド牛','c',{ body:'#b5672e', face:'#c98448', ear:'flop', horns:1, fluff:1, nz:'long' }],
+  lynx:['オオヤマネコ','h',{ body:'#c9a26a', face:'#f1e3cc', belly:'#f1e3cc', ear:'tri', earS:1.1, earIn:'#3a2a22', iris:'#b9a23a', nz:'tri', whisk:1 }],
+  goat:['アイベックス','f',{ body:'#a8926f', face:'#d9c9ac', ear:'flop', horns:1, nz:'long' }],
+  redsquirrel:['キタリス','a',{ body:'#b5532a', face:'#e9b98a', belly:'#fff6ea', ear:'tri', earS:.9, nz:'tri', tail:'bushy' }],
+  reindeer:['トナカイ','b',{ body:'#8a7460', face:'#e9e0d2', belly:'#e9e0d2', ear:'long', earS:.5, horns:1, neck:.15, nz:'long' }],
+  swan:['ハクチョウ','g',{ body:'#fbfbf9', belly:'#ffffff', ear:'none', neck:.35, nz:'beak', beak:'#e8734a', beakW:.8 }],
+  owl:['フクロウ','h',{ body:'#8a6a4a', faceBig:1, face:'#e9d9bd', belly:'#d9c2a0', ear:'tri', earS:.5, iris:'#f0b429', nz:'beak', beak:'#5a4a3a', beakW:.6, beakL:.7 }],
+  stork:['コウノトリ','g',{ body:'#fbfbf9', belly:'#ffffff', limb:'#d4472f', ear:'none', neck:.3, nz:'beak', beak:'#d4472f', beakL:2, beakW:.6 }],
+  cat:['ネコ','e',{ body:'#f1ede4', face:'#ffffff', ear:'tri', earIn:'#e9b9a8', iris:'#6fa8d6', nz:'tri', whisk:1, tail:'thin' }],
+  puffin:['パフィン','a',{ body:'#23283a', faceBig:1, face:'#f6f6f4', belly:'#ffffff', limb:'#e8734a', ear:'none', nz:'beak', beak:'#e8734a', beakW:1.3, beakL:1.1 }],
+  hippo:['カバ','c',{ body:'#8f7f8a', face:'#b9a3ad', ear:'round', earS:.45, nz:'long' }],
+  lemur:['ワオキツネザル','e',{ body:'#9a9aa0', faceBig:1, face:'#f6f6f4', belly:'#f6f6f4', ear:'round', earS:.6, earC:'#f6f6f4', pat:'mask', iris:'#e0a030', nz:'tri', tail:'bushy' }],
+  oryx:['オリックス','h',{ body:'#c9b08a', face:'#f6f1e6', belly:'#f6f1e6', ear:'long', earS:.5, horns:1, pat:'mask', neck:.15, nz:'long' }],
+  tortoise:['ゾウガメ','d',{ body:'#8a8468', face:'#a8a288', belly:'#cfc6a0', pat:'shell', shell:'#5a5444', ear:'none', neck:.12, nz:'dot' }],
+  jackal:['ジャッカル','h',{ body:'#3a3640', face:'#5a5560', ear:'tri', earS:1.2, earIn:'#c9a36a', iris:'#f0b429', nz:'tri', tail:'brush' }],
+  gorilla:['マウンテンゴリラ','f',{ body:'#2e2c33', faceBig:1, face:'#55525c', ear:'round', earS:.5, nz:'big', nose:.09 }],
+  beaver:['ビーバー','c',{ body:'#7a5236', face:'#a87a56', ear:'round', earS:.5, nz:'big', nose:.07, whisk:1 }],
+  manatee:['マナティー','c',{ body:'#9aa0a6', face:'#b9bec4', ear:'none', nz:'long', whisk:1 }],
+  pelican:['ペリカン','d',{ body:'#f6f1e6', belly:'#ffffff', ear:'none', neck:.2, nz:'beak', beak:'#f0b429', beakL:2.1, beakW:1.1 }],
+  bison:['バイソン','d',{ body:'#5a4030', face:'#3f2c22', ear:'flop', horns:1, fluff:1, nz:'long' }],
+  sealion:['アシカ','a',{ body:'#7a5a44', face:'#9a7a60', ear:'round', earS:.3, nz:'big', nose:.07, whisk:1 }],
+  raccoon:['アライグマ','e',{ body:'#8f8f96', face:'#e9e9ec', ear:'round', earS:.8, earIn:'#e9e9ec', pat:'mask', nz:'tri', whisk:1, tail:'bushy' }],
+  moose:['ヘラジカ','c',{ body:'#5a4636', face:'#8a705a', ear:'long', earS:.5, horns:1, neck:.2, nz:'long' }],
+  husky:['ハスキー犬','a',{ body:'#6a7080', face:'#ffffff', belly:'#ffffff', ear:'tri', earIn:'#e9c9c9', iris:'#7fc0e8', nz:'tri', tail:'brush' }],
+  nene:['ハワイガン','b',{ body:'#8a7a66', faceBig:1, face:'#f1e3c0', belly:'#d9c9ac', ear:'none', neck:.25, nz:'beak', beak:'#2b2b33', beakW:.8 }],
+  jaguar:['ジャガー','h',{ body:'#d9a23a', face:'#fff3df', belly:'#fff3df', ear:'round', earS:.7, iris:'#b9c23a', nz:'tri', whisk:1, tail:'thin' }],
+  chihuahua:['チワワ','e',{ body:'#e3c08a', face:'#fff6e6', belly:'#fff6e6', ear:'tri', earS:1.3, earIn:'#f0c9c0', nz:'tri' }],
+  booby:['アオアシカツオドリ','a',{ body:'#8a7460', faceBig:1, face:'#f1ede4', belly:'#ffffff', limb:'#4fb0d6', ear:'none', iris:'#f4e9a0', nz:'beak', beak:'#7a8a96', beakL:1.4, beakW:.7 }],
+  toucan:['オオハシ','e',{ body:'#23232b', faceBig:1, face:'#fff3c0', belly:'#ffffff', ear:'none', iris:'#6fc0e0', nz:'beak', beak:'#f08a2a', beakL:2.2, beakW:1.3 }],
+  flamingo:['フラミンゴ','g',{ body:'#f29aa8', belly:'#f8c0c8', limb:'#e87890', ear:'none', neck:.45, nz:'beak', beak:'#3a3a44', beakW:.9, beakL:1.2 }],
+  coati:['ハナグマ','a',{ body:'#9a6a44', face:'#e9d3b0', ear:'round', earS:.6, pat:'mask', nz:'long', tail:'bushy' }],
+  penguin:['マゼランペンギン','a',{ body:'#2d3a55', faceBig:1, face:'#ffffff', belly:'#ffffff', ear:'none', nz:'beak', beak:'#3a3a44' }],
+  kangaroo:['カンガルー','f',{ body:'#b98a5a', face:'#d9b98a', belly:'#f1e3cc', ear:'long', earS:.75, neck:.12, nz:'long', tail:'thin' }],
+  dugong:['ジュゴン','b',{ body:'#a8aeb4', face:'#c4c9ce', ear:'none', nz:'long' }],
+  wombat:['ウォンバット','c',{ body:'#8a7460', face:'#a8927c', ear:'round', earS:.6, nz:'big', nose:.09 }],
+  kiwi:['キーウィ','h',{ body:'#7a5a3a', belly:'#9a7a56', ear:'none', nz:'beak', beak:'#e9d9bd', beakL:2.6, beakW:.4 }],
+  tern:['シロアジサシ','g',{ body:'#fbfbf9', belly:'#ffffff', ear:'none', nz:'beak', beak:'#2b2b33', beakL:1.3, beakW:.6 }],
+  muskox:['ジャコウウシ','d',{ body:'#4a3a30', face:'#6a5a4c', ear:'flop', horns:1, fluff:1, nz:'long' }],
+  emperor:['コウテイペンギン','h',{ body:'#23283a', faceBig:1, face:'#ffffff', belly:'#fff6d0', ear:'none', nz:'beak', beak:'#e8a04a', beakL:1.2, beakW:.7 }],
+  blackcat:['黒ネコ','h',{ body:'#2b2b33', ear:'tri', earIn:'#55525c', iris:'#b9e04a', nz:'tri', whisk:1, tail:'thin' }],
+  polarbear:['ホッキョクグマ','d',{ body:'#f6f4ec', face:'#ffffff', ear:'round', earS:.7, nz:'big', nose:.08 }],
+  fennec:['フェネック','a',{ body:'#e9cf9a', face:'#fff6e6', belly:'#fff6e6', ear:'tri', earS:1.6, earIn:'#f0c9b0', nz:'tri', whisk:1, tail:'brush' }],
+  frog:['アマガエル','a',{ body:'#7cc36a', faceBig:1, face:'#a8dc8a', belly:'#e9f3c9', ear:'round', earS:.9, nz:'dot' }],
+  seaotter:['ラッコ','c',{ body:'#6a4a36', faceBig:1, face:'#e9dcc4', belly:'#8a6a50', ear:'round', earS:.4, nz:'big', nose:.08, whisk:1 }],
+  pigeon:['ハト','c',{ body:'#8f98a6', belly:'#b9c0ca', ear:'none', iris:'#e8734a', nz:'beak', beak:'#5a5560', beakW:.6, beakL:.7, limb:'#d65a70' }],
+  duck:['カモ','c',{ body:'#8a6a4a', faceBig:1, face:'#2f7a55', belly:'#d9d2c4', ear:'none', nz:'beak', beak:'#e0b23a', beakW:1.2, beakL:.7, limb:'#e8734a' }],
+  chicken:['ニワトリ','e',{ body:'#fbfbf9', belly:'#ffffff', ear:'round', earS:.5, earC:'#d4472f', nz:'beak', beak:'#e0b23a', beakW:.7, beakL:.7, limb:'#e0b23a' }],
+  egret:['シラサギ','g',{ body:'#fbfbf9', belly:'#ffffff', limb:'#3a3a44', ear:'none', neck:.4, nz:'beak', beak:'#e0b23a', beakL:2, beakW:.5 }],
+  rabbit:['ウサギ','a',{ body:'#f6f4ee', face:'#ffffff', ear:'long', earIn:'#f0b9c0', iris:'#c0392b', nz:'tri', whisk:1 }],
+  cow:['ウシ','d',{ body:'#2e2c33', face:'#4a4750', ear:'flop', horns:1, nz:'long' }],
+  pig:['黒ブタ','c',{ body:'#3a3640', face:'#d9a3a8', ear:'tri', earS:.6, nz:'long' }],
+  crane:['タンチョウ','g',{ body:'#fbfbf9', belly:'#ffffff', limb:'#3a3a44', ear:'round', earS:.4, earC:'#d4472f', neck:.42, nz:'beak', beak:'#b9a23a', beakL:1.8, beakW:.5 }],
+  serow:['カモシカ','h',{ body:'#6a6470', face:'#a8a2ac', ear:'long', earS:.45, horns:1, fluff:1, nz:'long' }],
+  ptarmigan:['ライチョウ','b',{ body:'#fbfbf9', belly:'#ffffff', ear:'round', earS:.35, earC:'#d4472f', nz:'beak', beak:'#3a3a44', beakW:.6, beakL:.6 }],
+  eagle:['カンムリワシ','f',{ body:'#5a4636', faceBig:1, face:'#8a705a', belly:'#b9a58a', ear:'tri', earS:.4, iris:'#f0b429', nz:'beak', beak:'#f0b429', beakW:.8 }],
+  sloth:['ナマケモノ','c',{ body:'#a8927c', faceBig:1, face:'#e9dcc4', ear:'none', pat:'mask', nz:'big', nose:.06 }]
+};
+const EXTRA = [
+  ['itsukushima','厳島神社','日本',132.32,34.30,'願いごと','torii','deer','もみじ','海の上に立つ朱色の大鳥居。満潮には社殿が海に浮かんで見え、干潮には鳥居まで歩ける。島にはシカが暮らす','潮が引くとね、鳥居まで歩いて行けるんだ。きみが最近お願いしたことって、なに？'],
+  ['shuri','首里城','日本',127.72,26.22,'ふるさとの味・食べ物の思い出','castle:#c0392b','dog','ちゅら','琉球王国の赤い城。火事のあと再建が進む。城下には沖縄そばやサーターアンダギーの店が並ぶ','ここは食べものがおいしい島なんだ。きみが「これは実家の味だなあ」って思う食べものは？'],
+  ['shiretoko','知床','日本',145.0,44.1,'好きな季節','ice','brownbear','クナ','冬は流氷が海を埋め、夏はヒグマがサケを追う。日本でいちばん遅く春が来る半島','流氷が来ると冬、サケが上ると秋だ。おまえがいちばん好きな季節は、いつだ？'],
+  ['seoul','景福宮','韓国',126.98,37.58,'家の習慣・決まりごと','pagoda:#3d8f6a','magpie','カチ','朝鮮王朝の正宮。門では衛兵の交代式がある。カササギは良い知らせを運ぶ鳥とされる','この宮殿、毎日同じ時刻に衛兵が交代するのよ。あんたの家には、どんな決まりごとがあった？'],
+  ['taipei','台北101','台湾',121.56,25.03,'年越し・節目の過ごし方','tower:#6fb0a8','blackbear','タイヤ','竹の節を重ねた形の超高層ビル。年越しには塔から花火が上がる。ふもとには夜市が広がる','年が明ける瞬間、この塔から花火が上がるんだ。おまえはいつも、年越しをどう過ごしてる？'],
+  ['shanghai','外灘','中国',121.49,31.24,'初めての給料・お金の使い方','sky:#b98a8a','redpanda','メイ','川沿いに百年前の銀行建築が並び、対岸には超高層ビル。昔から商いの街','ここは昔から、お金が行き交う川岸なんだよ。きみが初めて自分で稼いだお金、何に使ったの？'],
+  ['hongkong','ビクトリア・ピーク','香港',114.15,22.27,'夜の過ごし方','sky:#6a7aa8','monkey','ピーク','山の上から百万ドルの夜景が見える。急勾配のケーブルカーで登る。夜遅くまで街が明るい','この街は夜のほうが元気なんだよ。きみは夜、寝る前の時間に何してるの？'],
+  ['halong','ハロン湾','ベトナム',107.08,20.91,'休み方・ぼーっとする時間','karst','buffalo','ハー','海から二千もの岩の島が突き出す。船でゆっくり島の間を進む。朝は霧が立つ','ここじゃ船も急がないんだよお。きみは、何もしないでぼーっとするの、得意かい？'],
+  ['singapore','マーライオン','シンガポール',103.85,1.29,'住んだ街・引っ越し','statue:#f1efe8','otter','マー','頭がライオンで体が魚の像が水を吐く。多くの民族が一緒に暮らす港町。街なかの川にカワウソの家族が住む','ぼくの家族、この街の川を引っ越しながら暮らしてるんだ。きみはこれまで、どんな街に住んだの？'],
+  ['phuket','ピピ島','タイ',98.77,7.74,'夏休みの思い出','isle','gibbon','ピピ','切り立った崖に囲まれた入り江と白い砂浜。船でしか行けない。一年じゅう夏','ここは一年じゅう夏休みみたいなんだ。きみがいちばん覚えてる夏休みは、何年生のとき？'],
+  ['edinburgh','エディンバラ城','イギリス',-3.20,55.95,'不思議な体験','castle:#8f8a7c','highland','アンガス','岩山の上の古城。幽霊話がいくつも伝わる。毎日午後一時に大砲が鳴る。霧と雨の多い街','この城にはねえ、説明のつかない話がたくさんあるんだよお。きみにも、ふしぎな体験ってあるかい？'],
+  ['sagrada','サグラダ・ファミリア','スペイン',2.17,41.40,'まだ途中のこと','church','lynx','ガウ','百四十年以上つくり続けている教会。設計者は完成を見ずに亡くなった。塔が少しずつ増えている','ここは百年以上、まだつくっている途中なんだ。きみにも、まだ途中のものってあるだろうか'],
+  ['niagara','ナイアガラの滝','カナダ',-79.07,43.08,'勢いでやったこと','falls','beaver','メイプル','毎秒二千トンを超える水が落ちる国境の滝。水しぶきで虹がかかる。船で滝つぼに近づける','ここの水は迷わず飛びこむんだよお。きみが勢いだけでやっちゃったことって、あるかい？'],
+  ['uluru','ウルル','オーストラリア',131.04,-25.34,'大切にしている約束','rock','kangaroo','ジャラ','大陸の真ん中にある一枚岩。先住民の聖地で、いまは登らない約束になっている。夕日で赤く燃える','この岩は、登らないって皆で約束したんだ。おまえが大事に守ってる約束はあるか？'],
+  ['istanbul','アヤソフィア','トルコ',28.98,41.01,'二つの間で迷ったこと','dome:#b9a58a','gull','マルティ','ヨーロッパとアジアの境の海峡の街。教会にもモスクにもなった大聖堂。船が二つの大陸を行き来する','この街は二つの大陸にまたがってるの。あんたが二つの間で迷ったことって、なに？'],
+  ['hawaii','キラウエア火山','アメリカ',-155.29,19.42,'情熱を燃やしたもの','volcano','nene','レフア','いまも溶岩が流れ、島が少しずつ広がっている。火の女神の伝説がある','この山は今も燃えて、島を大きくしてるんだね。きみが夢中で燃えたものって、なにかな'],
+  ['xian','兵馬俑','中国',109.28,34.38,'一緒に頑張った仲間','statue:#a8926f','ibis','シュウ','八千体の兵士の像が地下に並ぶ。顔が一体ずつ違う。二千年以上、隊列を組んだまま','ここの兵士たちは、顔がひとつずつ違いますのよ。あなたが一緒に頑張った仲間は、どんな顔ぶれかしら'],
+  ['athens','パルテノン神殿','ギリシャ',23.73,37.97,'信じていること・座右の銘','columns','owl','グラウ','丘の上の白い柱の神殿。知恵の女神をまつり、フクロウはその使い。広場で哲学者たちが語り合った街','昔ここでは、人は何を信じて生きるかを語り合ったんだ。きみが大事にしている言葉はあるだろうか'],
+  ['yellowstone','イエローストーン','アメリカ',-110.59,44.46,'怒ったこと','geyser','bison','オールド','地面から熱い湯が定期的に噴き上がる。世界で最初の国立公園。地下に巨大なマグマがある','ここの地面はのう、ためこんだものを時々吹き上げるんじゃ。きみが最近、腹を立てたことは何かね'],
+  ['maldives','モルディブ','モルディブ',73.51,4.18,'理想の休日','isle','turtle','マール','千を超えるサンゴの島。海の上に建つ水上コテージ。いちばん高い所でも海抜二メートルほど','ここは波の音しかせんのう。きみが思う「最高の休みの日」は、どんな一日かね'],
+  ['everest','エベレスト','ネパール',86.93,27.99,'いちばんの挑戦','mt','yak','テンジン','世界でいちばん高い山(8849m)。頂の空気は地上の三分の一。荷を運ぶのはヤク','この山に登る者はのう、何年も準備するんじゃ。きみのこれまでで一番の挑戦は、何かね'],
+  ['copenhagen','人魚姫の像','デンマーク',12.60,55.69,'初恋','statue:#8fae9a','swan','スヴァン','港の岩に座る小さな人魚の像。恋のために声を手放した物語から生まれた','この像は、恋をした人魚のお話から生まれましたの。あなたの初恋は、いつ頃のことかしら'],
+  ['goldengate','ゴールデンゲートブリッジ','アメリカ',-122.48,37.82,'仲直り','bridge','sealion','ゴールディ','霧の海峡にかかる赤い吊り橋。架けるのは無理だと言われていた。桟橋にアシカが集まる','この橋、無理だって言われた海峡にかかったんだよ。きみが誰かと仲直りしたときのこと、教えて？'],
+  ['victoria','ビクトリアの滝','ザンビア・ジンバブエ',25.86,-17.92,'感情があふれた日','falls','hippo','モシ','現地の名は「雷鳴の轟く水煙」。幅一・七キロの水のカーテン。水煙は遠くからも見える','ここの水煙はねえ、ずっと遠くからも見えるんだよお。きみの気持ちがあふれ出た日って、どんな日だった？'],
+  ['dubai','ブルジュ・ハリファ','UAE',55.27,25.20,'いちばんのぜいたく','tower:#a8b9c9','falcon','サクル','世界一高いビル(828m)。砂漠の漁村が数十年で大都市になった。鷹狩りの伝統がある','ここは砂漠の村が世界一の塔を建てた街だ。おまえのこれまでで一番のぜいたくは何だ？'],
+  ['budapest','ドナウの温泉','ハンガリー',19.05,47.50,'疲れたときの回復法','dome:#a8554a','stork','ゴーヤ','街じゅうに温泉が湧く。川の両岸の夜景。湯につかりながらチェスを指す人たちがいる','この街では、お湯につかって盤を囲みますのよ。あなたは疲れたとき、どうやって元気を取り戻すのかしら'],
+  ['iguazu','イグアスの滝','アルゼンチン・ブラジル',-54.44,-25.69,'文化の違いに驚いたこと','falls','coati','コア','二つの国の境にある二百七十五の滝。岸によって見える景色が違う。遊歩道にハナグマが出る','この滝、どっちの国から見るかで景色がぜんぜん違うんだ。きみが「所変われば」って驚いたことは？'],
+  ['reef','グレートバリアリーフ','オーストラリア',146.5,-18.3,'守りたいもの','reef','dugong','リーフ','二千キロ続く世界最大のサンゴ礁。宇宙からも見える。海の温度が上がると白くなってしまう','このサンゴはね、少しの変化で弱ってしまうんだ。きみがどうしても守りたいものって、なにかな'],
+  ['mongolia','草原とゲル','モンゴル',106.9,47.9,'自由を感じた瞬間','tent','horse','タル','地平線まで草原が続く。移動式の家ゲルで季節ごとに引っ越す。子どもも馬に乗る','ここには柵がないんだ。おまえが「自由だ」と感じたのは、どんなときだ？'],
+  ['alhambra','アルハンブラ宮殿','スペイン',-3.59,37.18,'美しいと思うもの','castle:#c98a5a','goat','サビカ','赤い城壁の中に、細かな模様で埋めつくされた中庭と噴水がある。雪山を背にした丘の上','ここの壁の模様は、何年見ていても飽きない。おまえが「きれいだ」と思うのは、どんなものだ？'],
+  ['neworleans','フレンチ・クオーター','アメリカ',-90.07,29.96,'音楽の思い出','sky:#b9788a','pelican','サッチ','ジャズが生まれた街。通りのあちこちで生演奏が聞こえる。葬列でも楽団が陽気に演奏する','この街は、通りを歩くだけで音楽が聞こえるんじゃ。きみの思い出に結びついた一曲は、何かね'],
+  ['madagascar','バオバブ並木','マダガスカル',44.42,-20.25,'祖父母や年上の人から聞いた話','tree','lemur','マキ','樹齢数百年のバオバブが並ぶ道。根を空に向けたような形。この島にしかいない生きものが多い','この木たち、何百年もここで見てきたのよ。あんたがおじいちゃんやおばあちゃんから聞いた話、なにか覚えてる？'],
+  ['moscow','聖ワシリイ大聖堂','ロシア',37.62,55.75,'冬の思い出','onion','brownbear','ミーシャ','色とりどりのねぎ坊主の屋根。冬は零下二十度にもなる広場に立つ','ここの冬は息が凍るほど寒い。おまえが覚えている、いちばん寒かった日はいつだ？'],
+  ['uyuni','ウユニ塩湖','ボリビア',-67.49,-20.13,'自分の長所と短所','lake:#eef3f6','flamingo','サル','雨季には薄く水が張り、空をそっくり映す鏡になる。標高三千七百メートルの真っ白な塩の原','ここは雨が降ると、空を映す鏡になりますの。鏡に映るあなたは、どんな人かしら'],
+  ['cappadocia','カッパドキア','トルコ',34.83,38.64,'初めての体験','balloon','redfox','アト','きのこの形の岩が立ち並ぶ谷。夜明けに百もの気球がいっせいに上がる。岩をくり抜いた家','夜明けに気球がいっせいに上がるのよ。あんたが最近「初めて」やったことって、なに？'],
+  ['hollywood','ハリウッドの丘','アメリカ',-118.32,34.13,'自分の人生の名場面','sign','raccoon','スター','丘の上の大きな白い文字。ふもとに映画の街。星の形の敷石が歩道に並ぶ','ここは映画の街でしょ。あんたの人生を映画にするなら、いちばんの名場面はどこ？'],
+  ['sigiriya','シーギリヤ・ロック','スリランカ',80.76,7.96,'勇気を出したこと','rock:#b98a5a','elephant','シギ','密林から突き出た高さ二百メートルの岩の上に王宮の跡。崖にへばりつく階段を登る','この岩の階段はのう、下を見ると足がすくむんじゃ。きみが勇気をふりしぼったのは、どんなときかね'],
+  ['fjord','ガイランゲルフィヨルド','ノルウェー',7.2,62.1,'自然の中での思い出','mt:#6f8f9a','reindeer','フィヨ','氷河が削った深い入り江。両岸の崖から滝が何本も落ちる。夏は夜中まで明るい','ここは氷が何万年もかけて削った谷なんだ。きみが覚えている、自然の中での思い出はなにかな'],
+  ['marrakech','ジャマ・エル・フナ広場','モロッコ',-7.99,31.63,'大事にしている持ち物','tower:#c98a5a','donkey','ハッサン','夕方になると屋台と大道芸で埋まる広場。迷路のような市場に、じゅうたんやランプの店が続く','ここの市場には、世界じゅうの品があるんだよお。きみが長く大事にしている持ち物って、なんだい？'],
+  ['teotihuacan','テオティワカン','メキシコ',-98.84,19.69,'見知らぬ人に助けられた話','step','chihuahua','ソル','太陽と月のピラミッドが並ぶ古代都市。誰が建てたのか、いまも分かっていない','ここを建てた人たちの名前、誰も知らないのよ。あんたが名前も知らない人に助けられたことって、ある？'],
+  ['abusimbel','アブ・シンベル神殿','エジプト',31.63,22.34,'誕生日の思い出','columns:#e0bd78','jackal','ラムス','岩山を彫った巨大な王の像。年に二回だけ、朝日が神殿の奥まで届くように造られている','ここは年に二日だけ、朝日が奥まで届く。きみが覚えている誕生日は、何歳のときだろうか'],
+  ['baikal','バイカル湖','ロシア',107.5,54.5,'自分の意外な一面','lake','seal','ネルパ','世界でいちばん深く、いちばん古い湖。冬は透明な氷が張る。海から遠いのにアザラシが住む','ここは湖なのに、わたしたちアザラシがいるんだ。きみにも、人から意外だと言われる一面はあるかな'],
+  ['denali','デナリ','アメリカ',-151.0,63.07,'先生・師匠','mt','husky','デナ','北アメリカでいちばん高い山。名前は先住民の言葉で「偉大なもの」。犬ぞりが今も冬の足','この山の名前、「偉大なもの」って意味なんだ。きみが「この人はすごい」って思った先生は誰？'],
+  ['samarkand','レギスタン広場','ウズベキスタン',66.97,39.65,'憧れの人','dome','camel2','ミール','青いタイルの学び舎が三つ向かい合う広場。シルクロードの真ん中で、東と西の品と知恵が行き交った','ここには昔、世界じゅうから学びに来たんじゃ。きみが憧れた人は、どんな人かね'],
+  ['seychelles','セーシェル','セーシェル',55.5,-4.7,'好きな人のこと','isle','tortoise','アルダ','丸い大岩が並ぶ白い浜。百年以上生きるゾウガメがいる。ハート形の実をつけるヤシがある','わしは百年生きとるが、好きなものは変わらんのう。きみにはいま、好きな人はおるかね'],
+  ['angelfalls','エンジェルフォール','ベネズエラ',-62.54,5.97,'夢中で追いかけたもの','falls:#6e9a5c','toucan','トゥカ','落差九百七十九メートル、世界一の滝。水は落ちる途中で霧になる。テーブル状の山から落ちる','この滝、見つけた人は飛行機で何年も探したんだって。あんたが夢中で追いかけたものって、なに？'],
+  ['petersburg','エルミタージュ美術館','ロシア',30.31,59.94,'心に残る本・映画・絵','onion:#3d8f6a','cat','ワーシャ','三百万点を収める宮殿の美術館。地下ではネコたちがネズミから絵を守っている','あたし、ここの地下で絵を守ってるの。あんたの心にずっと残ってる作品って、なに？'],
+  ['mumbai','インド門','インド',72.83,18.92,'出発と別れ','arch','parakeet','ミトゥ','海に面した大きな門。船で着く人を迎え、去る人を見送ってきた。門の前は一日じゅう人でいっぱい','この門はね、来る人も行く人も見てきたんだよ。きみが覚えてる「いってきます」は、どんな日？'],
+  ['patagonia','ペリト・モレノ氷河','アルゼンチン',-73.05,-50.5,'長い時間をかけて変わったこと','ice','penguin','マガ','幅五キロの氷の壁が一日に二メートルずつ進む。ときどき轟音を立てて崩れ落ちる','この氷、一日に二メートルしか進まないんだよ。きみが何年もかけて、少しずつ変わったことって何？'],
+  ['neuschwanstein','ノイシュヴァンシュタイン城','ドイツ',10.75,47.56,'子どもの頃の夢','castle','redsquirrel','ルッツ','王さまが夢見た物語の世界を形にした白い城。崖の上に建ち、王は完成を見なかった','このお城は、王さまが子どもの頃からの夢を建てたんだよ。きみは小さい頃、何になりたかったの？'],
+  ['galapagos','ガラパゴス諸島','エクアドル',-90.5,-0.6,'自分が変わったところ','isle:#8f8a7c','booby','ブルー','島ごとに生きものの形が少しずつ違う。人を怖がらない動物たち。進化の考えが生まれた島','この島の生きものは、暮らす場所に合わせて変わってきたんだ。きみは昔とくらべて、どこが変わった？'],
+  ['moher','モハーの断崖','アイルランド',-9.43,52.97,'思いきって決めたこと','rock:#6e9a5c','puffin','パディ','大西洋に落ちる高さ二百メートルの崖が八キロ続く。風が強く、崖にパフィンが巣をつくる','ぼくらはこの崖から飛び出して海へ行くんだ。きみが「えいっ」って思いきって決めたことは？'],
+  ['namib','ナミブ砂漠','ナミビア',15.3,-24.7,'我慢の時代','dunes','oryx','ナミ','世界でいちばん古い砂漠。赤い砂丘と、九百年前に枯れたまま立つ木。朝霧の水で生きものが暮らす','ここの生きものは、朝の霧のしずくで生きている。きみにも、じっと耐えた時期はあっただろうか'],
+  ['banff','レイク・ルイーズ','カナダ',-116.18,51.42,'落ち着く場所','lake:#5fc0b8','moose','ルイーズ','氷河の水でエメラルド色になる湖。ロッキー山脈に囲まれ、冬は湖の上でスケートができる','ここの水はねえ、氷河がとけた色なんだよお。きみが「ここに来ると落ち着く」って場所は、どこだい？'],
+  ['chichen','チチェン・イッツァ','メキシコ',-88.57,20.68,'人生の節目の年','step','jaguar','バラム','マヤの暦を形にしたピラミッド。階段は合わせて三百六十五段。春分と秋分に蛇の影が現れる','このピラミッドは暦でできている。きみの人生の暦で、節目になった年はいつだろうか'],
+  ['milford','ミルフォード・サウンド','ニュージーランド',167.93,-44.64,'雨の日の思い出','mt:#5f8a6a','kiwi','ミル','一年の三分の二は雨が降る入り江。雨のたびに崖に何百本もの滝が現れる','ここは雨の日のほうがきれいなんだ。きみが覚えている雨の日は、どんな日だろうか'],
+  ['virunga','ヴィルンガ火山群','コンゴ・ルワンダ',29.5,-1.4,'父と母のこと','volcano:#4f7a55','gorilla','ンガ','霧の森に、マウンテンゴリラの家族が暮らす。群れは一頭の父親を中心にまとまる','おれたちは家族でまとまって暮らす。おまえの父さんと母さんは、どんな人だ？'],
+  ['fiji','フィジー','フィジー',178.0,-17.7,'新しい始まり','isle','parakeet','ブラ','日付変更線のすぐそばにあり、世界でいちばん早く朝が来る島のひとつ。あいさつは「ブラ！」','ここはね、世界でいちばん早く朝が来るんだよ。きみが「ここから新しく始まった」って思う日は？'],
+  ['greatocean','グレート・オーシャン・ロード','オーストラリア',143.1,-38.67,'移動中の思い出','karst:#e0b97a','wombat','オーシャ','海沿いを二百四十キロ走る道。波が削った岩の柱が海に立ち並ぶ。戦争から帰った兵士たちが造った','この道はねえ、走ってるあいだがいちばん楽しいんだよお。きみが覚えてる、移動中の思い出ってあるかい？'],
+  ['buenosaires','ブエノスアイレス','アルゼンチン',-58.38,-34.60,'体を動かした思い出','tower:#f1efe8','horse','ガウチョ','タンゴが生まれた港町。広場でも道ばたでも人が踊る。草原ではガウチョが馬を駆る','この街じゃ、道ばたでも踊るんだ。おまえが体を動かして夢中になったのは、何だ？'],
+  ['borabora','ボラボラ島','フランス領ポリネシア',-151.74,-16.5,'一緒に暮らした人','isle:#f6ecc4','tern','ボラ','サンゴ礁に囲まれた青い入り江に、水上の小屋が並ぶ。島の真ん中にとがった山','ここでは皆、水の上の小さな家で寄りそって暮らしますの。あなたが一緒に暮らした人は、どんな方かしら'],
+  ['greenland','イルリサット氷河','グリーンランド',-51.1,69.2,'人に見えていない努力','ice','muskox','イルリ','氷河から巨大な氷山が海へ流れ出す。氷山は九割が水の下にある','氷山はのう、見えとるのは一割だけじゃ。きみが人知れずやってきたことは、何かね'],
+  ['kashgar','タクラマカン砂漠','中国',82.0,39.0,'道に迷ったとき','dunes:#e6c98a','camel2','サンド','名前は「入ると出られない」という意味だと言われる砂漠。昔の隊商は星と井戸を頼りに渡った','この砂漠ではのう、星を見て道を決めたんじゃ。きみが迷ったとき、頼りにしたものは何かね'],
+  ['borobudur','ボロブドゥール','インドネシア',110.2,-7.61,'朝の習慣','step:#8f8a7c','orangutan','ボロ','密林に眠っていた世界最大の仏教遺跡。夜明けに登り、朝日を待つ人が多い','ここには朝日を待ちに人が来るんじゃ。きみの朝は、いつも何から始まるかね']
+];
+const HIDDEN = [
+  ['bermuda','霧の海域','北大西洋',-66,27,'誰にも言っていない小さな秘密','secret','blackcat','ミスト','船や飛行機が消えるという言い伝えのある三角の海域。地図には何も描かれていない','ここで話したことは、霧が隠してくれる。誰にも言っていない小さな秘密は、あるだろうか','大西洋の霧の中で、黒い影を見た船乗りがいるらしい'],
+  ['nemo','ポイント・ネモ','南太平洋',-123.4,-48.9,'ひとりの時間','secret','emperor','ネモ','どの陸地からもいちばん遠い海の点。いちばん近い人間は、上空を通る宇宙ステーションの飛行士','ここは世界でいちばん人から遠い場所なんだ。きみは、ひとりの時間をどう過ごしているだろうか','どの陸からもいちばん遠い海に、誰かがぽつんといるらしい'],
+  ['arctic','北極海の氷原','北極',90,75.5,'十年後の自分への手紙','secret','polarbear','ポーラ','一年じゅう氷に覆われた海。氷はゆっくり流れ、数年かけて海を渡る','この氷はのう、何年もかけて流れていくんじゃ。十年後のきみに、ひとこと届けるなら何と言うかね','地図のいちばん上、氷の上で手紙を預かっている者がいるらしい'],
+  ['oasis','名もないオアシス','サハラ砂漠',9,23,'死ぬまでにやりたいこと','secret','fennec','ザハラ','砂の海の真ん中の小さな泉。地図に名前はない。旅人はここで行き先を考え直す','ここに着いた旅人はね、みんな「次はどこへ行こう」って考えるんだ。きみが死ぬまでにやりたいことって、なに？','サハラの真ん中に、地図にない泉があるらしい'],
+  ['mariana','マリアナ海溝の真上','西太平洋',142.2,11.35,'いちばん落ち込んだ日と、浮かび上がったきっかけ','secret','turtle','ソコ','世界でいちばん深い海の真上。底までは一万メートルを超える。光は届かないが、生きものはいる','この下はのう、世界でいちばん深い。きみがいちばん沈んだ日と、そこから浮かんできたきっかけを、聞かせてくれんか','日本のずっと南、世界でいちばん深い海の上に、年寄りのカメがいるらしい'],
+  ['nullisland','緯度0・経度0','ギニア湾',0,0,'自分の名前の話','secret','frog','ゼロ','赤道と本初子午線が交わる点。海しかないが、位置のわからないデータが集まる「ヌル島」と呼ばれる','ここはね、名前のないものが集まる場所なんだ。きみの名前は、誰がどんな思いでつけたの？','緯度も経度もゼロの海に、小さな緑のやつがいるらしい'],
+  ['dateline','日付変更線','太平洋の赤道',179.5,0,'人生最高の一日','secret','seaotter','ひづけ','ここをまたぐと日付が一日変わる。同じ一日を二度すごすこともできる線','ここをまたぐと、同じ日をもう一回すごせるんだよお。もう一回すごしたい、人生最高の一日はいつだい？','太平洋の真ん中、今日と明日の境目に浮かんでいるやつがいるらしい'],
+  ['selva','アマゾンの奥','南アメリカ',-65,-8,'もし別の人生を生きるなら','secret','sloth','ノロ','道のない密林の奥。川だけが通り道。まだ名前のついていない生きものがいる','ここはねえ、まだ誰も名前をつけてない生きものがいるんだよお。もし別の人生を生きるなら、きみは何になる？','アマゾンのずっと奥に、動かない誰かがぶら下がっているらしい']
+];
+/* 日本国内の名所。地図を拡大すると現れる */
+const JAPAN = [
+  ['asakusa','浅草寺','東京',139.80,35.71,'運がよかったこと','pagoda','pigeon','ぽっぽ','雷門の大きな赤い提灯。おみくじは凶が多いことで知られる。仲見世に人形焼きや煎餅の店が並ぶ','ここのおみくじはねえ、凶がよく出るんだよお。きみが「運がよかったなあ」と思うことって、なんだい？'],
+  ['kyoto','清水寺','京都',135.78,34.99,'修学旅行の思い出','pagoda:#e07a3a','dog','はんな','崖にせり出した木の舞台。釘を一本も使わずに組んである。修学旅行生でいつもにぎやか','今日も修学旅行の子たちが来てるよ。きみの修学旅行、いちばん覚えてるのはどんな場面？'],
+  ['matsumoto','松本城','長野',137.97,36.24,'譲れないこだわり','castle:#3a3a44','ptarmigan','らい','黒い板張りの天守。四百年、壊されずに残った。市民が買い戻して守った城','このお城はね、町の人が「壊させない」って守ったんだ。きみにも、これだけは譲れないってものはあるかな'],
+  ['nikko','日光東照宮','栃木',139.60,36.76,'あえて言わなかったこと','pagoda:#c9a23a','monkey','みざる','「見ざる・言わざる・聞かざる」の三猿の彫刻。金と極彩色の門。杉並木が何十キロも続く','ここには「言わざる」のサルがいるんだよ。きみが、あえて言わずにおいたことってある？'],
+  ['ise','伊勢神宮','三重',136.73,34.46,'新しくやり直したこと','torii:#c9a36a','chicken','こけ','二十年ごとに社殿をそっくり建て替える。千三百年続くしきたり。境内をニワトリが歩いている','ここは二十年ごとに、ぜんぶ新しく建て直すのよ。あんたが一から新しくやり直したことって、なに？'],
+  ['himeji','姫路城','兵庫',134.69,34.84,'自慢できること','castle','egret','しろ','白鷺が羽を広げた姿にたとえられる白い城。戦にも火事にも遭わずに残った','このお城は、白さが自慢ですの。あなたが胸を張って自慢できることは、何かしら'],
+  ['kanazawa','兼六園','石川',136.66,36.56,'備えていること','tree:#6a5a45','duck','かが','冬の前に、雪の重みから枝を守る縄を木に張る。池を中心にした大名の庭','ここでは冬が来る前に、木に縄を張って備えるんだよお。きみが先のために備えていることは、あるかい？'],
+  ['izumo','出雲大社','島根',132.69,35.40,'不思議な縁','torii:#8a6a45','rabbit','いなば','縁結びの神さま。年に一度、全国の神々が集まると言われる。巨大なしめ縄','ここはご縁の神さまなんだ。きみにも「あれは縁だったなあ」って思う出会い、ある？'],
+  ['sado','佐渡島','新潟',138.40,38.00,'離れて暮らす人','rock:#6e9a5c','ibis','ニッポ','一度は日本の空から消えたトキが、ふたたび飛ぶ島。昔は金山でにぎわった。船で渡る','この島は、船でないと来られませんの。あなたには、離れて暮らしている大切な人はいるかしら'],
+  ['kochi','桂浜','高知',133.57,33.50,'お酒の席の思い出','statue:#5a6478','dog','りょう','太平洋を見つめる志士の像が立つ弓なりの浜。土地の人は宴会好きで知られる','この土地じゃ、知らない人ともすぐ杯を交わすんだ。きみの、お酒の席や食事の席での思い出は？'],
+  ['dazaifu','太宰府天満宮','福岡',130.53,33.52,'受験・試験の思い出','bridge','cow','うめ','学問の神さま。受験生が絵馬を奉納する。牛の像の頭をなでると賢くなると言われる。梅の名所','ここは試験の前に人が来るんじゃ。きみが覚えとる試験の日は、どんな日じゃったかね'],
+  ['matsushima','松島','宮城',141.06,38.37,'言葉にできなかった気持ち','karst:#4f7a55','gull','しま','松の生えた小島が二百六十ほど浮かぶ湾。あまりの景色に俳人が句を詠めなかったと伝わる','ここでは、名人でも言葉が出なかったって言うのよ。あんたにも、言葉にならなかった気持ちってある？'],
+  ['nagasaki','長崎の坂道','長崎',129.87,32.74,'通学路・通勤路','church:#e9e4d8','cat','まがり','港を囲む急な坂と石段の街。坂の上に古い教会と洋館。しっぽの曲がったネコが多い','この街は坂ばっかりなの。あんたが毎日歩いた通学路って、どんな道だった？'],
+  ['sakurajima','桜島','鹿児島',130.66,31.59,'慣れてしまった苦労','volcano','pig','はい','いまも毎日のように噴煙を上げる火山。ふもとの人は灰が降る日常に慣れている','ここじゃ空から灰が降るのも、いつものことだよお。きみにも、もう慣れちゃった苦労ってあるかい？'],
+  ['hakodate','函館山','北海道',140.70,41.76,'忘れられない夜','sky:#3d5a99','redfox','いさり','山の上から、両側を海にはさまれた街の夜景が見える。沖にはイカ釣り船の灯りが並ぶ','ここの夜は、海にも灯りが浮かぶのよ。あんたの忘れられない夜って、どんな夜？'],
+  ['sapporo','札幌市時計台','北海道',141.35,43.06,'待ち合わせの思い出','tower:#f1efe8','redsquirrel','コロ','百四十年、鐘で時を知らせてきた木造の時計台。冬は雪まつりで街が雪像に埋まる','この時計台、昔から待ち合わせの目印なんだよ。きみが覚えてる待ち合わせって、誰との？'],
+  ['towada','十和田湖','青森・秋田',140.90,40.47,'一人旅','lake','serow','とわ','火山がつくった深い湖。流れ出す渓流は苔と滝が続く。秋は湖面に紅葉が映る','ここへは、ひとりで来る人も多いんだ。きみは一人でどこかへ出かけたこと、あるだろうか'],
+  ['yakushima','屋久島','鹿児島',130.53,30.35,'年をとったらやりたいこと','tree:#5a4a3a','deer','じょうもん','樹齢数千年と言われる杉が立つ苔の森。ひと月に三十五日雨が降ると言われる','ここの杉は何千年も生きているんだね。きみは年をとったら、どんなふうに過ごしたいかな'],
+  ['kushiro','釧路湿原','北海道',144.40,43.10,'結婚・パートナーについて思うこと','lake:#8fb0a0','crane','たんこ','日本でいちばん広い湿原。タンチョウは一度つがいになると一生添いとげると言われる','わたくしたちは、一度決めた相手とずっと一緒ですの。あなたは、ともに生きる相手についてどう考えているかしら'],
+  ['ishigaki','石垣島','沖縄',124.16,24.46,'忘れられない空','isle','eagle','てぃだ','八十八星座のうち八十四が見える島。南十字星も見える。サンゴの入り江','ここは星がいちばんよく見える島だ。おまえの忘れられない空は、どんな空だ？'],
+  ['soya','宗谷岬','北海道',141.94,45.52,'限界までがんばったこと','tower:#8f98a6','seal','そうや','日本のいちばん北の端。晴れた日には海の向こうに樺太が見える。自転車や徒歩で目指す旅人がいる','ここより北に、もう道はないんだ。きみが「ここが限界」ってところまでがんばったのは、どんなとき？'],
+  ['ogasawara','小笠原諸島','東京',142.20,27.10,'待った時間','isle:#f6ecc4','turtle','ボニン','船で二十四時間。飛行場はない。一度も大陸とつながったことのない島で、固有の生きものが多い','ここへ来るには、船で丸一日かかるんじゃ。きみがいちばん長く待ったものは、何かね']
+];
+const build = (r, hidden, k) => { const [icon, col] = r[6].split(':'), sx = SPX[r[7]]; return { id:r[0], need:hidden ? 0 : 1 + Math.floor(k * .7), hidden, hint:r[11], name:r[1], country:r[2], lon:r[3], lat:r[4], theme:r[5], guide:r[5], icon, col,
+  npc:{ name:r[8], kind:sx[0], voice:VO[sx[1]], sp:sx[2] }, facts:r[9], qs:[r[10]], x:wx(r[3]), y:wy(r[4]) }; };
+EXTRA.forEach((r, k) => PLACES.push(build(r, false, k)));
+HIDDEN.forEach(r => PLACES.push(build(r, true, 0)));
+JAPAN.forEach((r, k) => { const p = build(r, false, 0); p.need = Math.floor(k * .5); p.minZ = 3; p.jp = true; PLACES.push(p); });
+PLACES.forEach((p, i) => { p.ox = 66; p.oy = 16; p.run = !p.hidden && i % 3 === 1; });
+const placeOf = id => PLACES.find(p => p.id === id);
+const isOpen = p => p.hidden ? (S.meta.found || []).includes(p.id) : userTurns() >= p.need;
+const openCount = () => PLACES.filter(p => !p.hidden && isOpen(p)).length;
+const SPOTS = PLACES.filter(p => !p.hidden).length;
+
+const AVATARS = [
+  { id:'fox', label:'キツネ', sp:{ body:'#e07a2e', face:'#fff3e0', belly:'#fff3e0', ear:'tri', earIn:'#3a2a22', iris:'#c98a2a', nz:'tri', whisk:1, tail:'brush', scarf:'#3d5a99' } },
+  { id:'bear', label:'クマ', sp:{ body:'#8a5d3b', face:'#d9b58c', ear:'round', earIn:'#d9b58c', nz:'big', nose:.08, scarf:'#d65a70' } },
+  { id:'rabbit', label:'ウサギ', sp:{ body:'#f3efe6', face:'#ffffff', ear:'long', earIn:'#f0b9c0', nz:'tri', whisk:1, scarf:'#5a7a4a' } },
+  { id:'penguin', label:'ペンギン', sp:{ body:'#2d3a55', faceBig:1, face:'#ffffff', belly:'#ffffff', ear:'none', nz:'beak', beak:'#f0b429', scarf:'#d65a70' } },
+  { id:'cat', label:'ネコ', sp:{ body:'#e3a34f', face:'#f6dcae', belly:'#f6dcae', ear:'tri', earIn:'#e9b9a8', pat:'stripes', iris:'#7fae4a', nz:'tri', whisk:1, tail:'thin', scarf:'#3d5a99' } },
+  { id:'dog', label:'イヌ', sp:{ body:'#d9b98a', face:'#fff6e6', belly:'#fff6e6', ear:'flop', earC:'#a9794a', nz:'big', nose:.08, tail:'brush', scarf:'#5a7a4a' } }
+];
+const BIRD = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M12 44 L3 50 L13 50Z" fill="#27304a"/><ellipse cx="32" cy="40" rx="20" ry="18" fill="#fff" stroke="#27304a" stroke-width="2.5"/><circle cx="32" cy="24" r="15" fill="#27304a"/><ellipse cx="22.5" cy="29" rx="6.5" ry="5.5" fill="#fff"/><ellipse cx="41.5" cy="29" rx="6.5" ry="5.5" fill="#fff"/><circle cx="24" cy="21.5" r="3.2" fill="#d65a70"/><circle cx="24" cy="21.5" r="1.8" fill="#27304a"/><circle cx="40" cy="21.5" r="3.2" fill="#d65a70"/><circle cx="40" cy="21.5" r="1.8" fill="#27304a"/><path d="M27 26 Q32 22 37 26 L32 35Z" fill="#d65a70"/><path d="M27 58 v4 M37 58 v4" stroke="#d65a70" stroke-width="2.5" stroke-linecap="round"/></svg>';
+
+/* ================= 状態 ================= */
+const S = { ready:false, uid:null, isOwner:false, avatar:null, x:wx(138.2), y:wy(34.2), tx:null, ty:null,
+  journal:[], profile:{}, meta:{}, book:null, books:[], purch:[], z:2.4, near:null, dlg:null, sheet:null, busy:false, chips:[], working:false, news:0 };
+let db = null, user = null, sample = null, saveQ = Promise.resolve();
+
+/* ---- AIの差し込み口 ----
+   この画面の中では Claude に直接つながる。単体のアプリ(Web・iOS・Android)にするときは、
+   自前のサーバー(kikigaki-ai-server.mjs)のURLを endpoint に入れるだけで、会話・学習・本の執筆がすべて同じ文章エンジンで動く。
+   APIキーはサーバー側だけに置き、アプリには入れない。 */
+const APP_AI = { endpoint:'', appToken:'' };
+function makeAI(native){
+  if (native) return native;
+  if (!APP_AI.endpoint) return null;
+  const call = async (path, body, onText) => {
+    let res;
+    try { res = await fetch(APP_AI.endpoint.replace(/\/$/, '') + path, { method:'POST', headers:{ 'content-type':'application/json', ...(APP_AI.appToken ? { authorization:'Bearer ' + APP_AI.appToken } : {}) }, body:JSON.stringify(body) }); }
+    catch (e) { throw { code:'unavailable', message:String(e) }; }
+    if (res.status === 429) throw { code:'rate_limited', message:'rate limited' };
+    if (!res.ok) throw { code:'unavailable', message:'HTTP ' + res.status };
+    if (!onText || !res.body) return res;
+    const rd = res.body.getReader(), dec = new TextDecoder(); let text = '';
+    for (;;){ const { done, value } = await rd.read(); if (done) break; const delta = dec.decode(value, { stream:true }); text += delta; onText({ text, delta }); }
+    return text;
+  };
+  const tier = o => (o && o.modelTier) || 'default';
+  const ai = async (prompt, o) => { const text = await call('/text', { prompt, tier:tier(o) }, (o && o.onText) || (() => {})); return { text, truncated:false }; };
+  ai.json = async (prompt, o) => (await call('/json', { prompt, tier:tier(o) })).json();
+  return ai;
+}
+
+const $ = s => document.querySelector(s);
+function h(tag, attrs, ...kids){
+  const e = document.createElement(tag);
+  for (const k in (attrs || {})){
+    const v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k in e) e[k] = v;
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)){
+    if (c == null || c === false) continue;
+    e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return e;
+}
+const svg = () => { const s = document.createElement('span'); s.innerHTML = BIRD; return s.firstChild; };
+const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+const plain = o => JSON.parse(JSON.stringify(o));
+const me = () => S.uid || 'local';
+const pdoc = k => db.doc('data/users/' + S.uid + '/' + k);
+const hue = id => { let x = 0; for (const c of String(id)) x = (x * 31 + c.charCodeAt(0)) >>> 0; return 's' + (x % 4); };
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => t.style.display = 'none', 4600); }
+
+const userEntries = () => S.journal.filter(e => e.r === 'u');
+const userTurns = () => userEntries().length;
+const userChars = () => userEntries().reduce((n, e) => n + e.c.length, 0);
+const myItems = () => (S.purch.find(p => p.id === me())?.items) || [];
+const sold = id => S.purch.filter(p => p.items.includes(id)).length;
+const myPub = () => S.books.find(b => b.id === me());
+const keepLocal = () => { if (db && S.uid) return; try { localStorage.setItem('kk-books', JSON.stringify(S.books)); localStorage.setItem('kk-purch', JSON.stringify(S.purch)); } catch {} };
+
+function save(kind){
+  let body;
+  if (kind === 'me') body = { avatar:S.avatar, x:Math.round(S.x), y:Math.round(S.y), z:+S.z.toFixed(2), meta:plain(S.meta), profile:plain(S.profile) };
+  else if (kind === 'journal'){ let es = S.journal.slice(-400); while (es.length > 40 && JSON.stringify(es).length > 180000) es = es.slice(20); body = { entries: es }; }
+  else { if (!S.book) return Promise.resolve(false); body = plain(S.book); }
+  if (!db || !S.uid){ try { localStorage.setItem('kk-' + kind, JSON.stringify(body)); return Promise.resolve(true); } catch { return Promise.resolve(false); } }
+  saveQ = saveQ.then(() => pdoc(kind).set(body)).then(() => true).catch(() => { toast('保存できませんでした。この画面を閉じると消えるかもしれません。'); return false; });
+  return saveQ;
+}
+
+/* ================= 端末の中で動くAI (WebLLM) =================
+   モデルを一度ダウンロードすると、会話も学習も本の執筆も、この端末の中だけで動く。キーも料金もサーバーも不要。 */
+const LOCAL_MODELS = [
+  { id:'gemma-2-2b-jpn-it-q4f16_1-MLC', label:'日本語向け・標準（必要メモリ 約1.9GB）' },
+  { id:'Qwen2.5-3B-Instruct-q4f16_1-MLC', label:'文章力重視（必要メモリ 約2.5GB）' },
+  { id:'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', label:'軽量（必要メモリ 約1.6GB）' },
+  { id:'Qwen2.5-7B-Instruct-q4f16_1-MLC', label:'高性能パソコン向け（必要メモリ 約5.1GB）' }
+];
+const LAI = { engine:null, state:'off', progress:0, text:'', err:'', model:(() => { try { return localStorage.getItem('kk-ai-model') || ''; } catch { return ''; } })() };
+async function loadLocalAI(modelId){
+  if (LAI.state === 'loading') return;
+  if (!navigator.gpu){ LAI.state = 'nogpu'; return aiView(); }
+  LAI.state = 'loading'; LAI.progress = 0; LAI.text = '準備しています…'; LAI.err = ''; aiView();
+  const cb = r => { LAI.progress = r.progress || 0; LAI.text = r.text || ''; const b = $('#aibar'), t = $('#aitext'); if (b) b.style.width = Math.round(LAI.progress * 100) + '%'; if (t) t.textContent = LAI.text; };
+  try{
+    const lib = await import('./web-llm.js');
+    let eng;
+    try { eng = await lib.CreateMLCEngine(modelId, { initProgressCallback:cb }); }
+    catch (e) { eng = await lib.CreateMLCEngine(modelId.replace('q4f16_1', 'q4f32_1'), { initProgressCallback:cb }); }
+    LAI.engine = eng; LAI.model = modelId; LAI.state = 'ready';
+    try { localStorage.setItem('kk-ai-model', modelId); } catch {}
+    if (!sample || sample.local) sample = localAI();
+    toast('ふみ「端末の中のAIの準備ができたよ」');
+  }catch(e){ LAI.state = 'error'; LAI.err = String((e && e.message) || e).slice(0, 200); }
+  aiView(); if (S.dlg) renderDialog();
+}
+function localAI(){
+  let chain = Promise.resolve();                       // 端末内AIは一度に一つずつ
+  const run = fn => { const p = chain.then(fn, fn); chain = p.catch(() => {}); return p; };
+  const ai = (prompt, o = {}) => run(async () => {
+    const stream = await LAI.engine.chat.completions.create({ messages:[{ role:'user', content:prompt }], stream:true, temperature:.8, max_tokens:o.max || 200 });
+    let text = '';
+    for await (const ch of stream){ const d = (ch.choices[0] && ch.choices[0].delta && ch.choices[0].delta.content) || ''; text += d; if (o.onText) o.onText({ text, delta:d }); }
+    return { text:text.replace(/<think>[\s\S]*?<\/think>/g, '').trim(), truncated:false };
+  });
+  ai.json = (prompt, o = {}) => run(async () => {
+    const r = await LAI.engine.chat.completions.create({ messages:[{ role:'user', content:prompt }], temperature:.3, max_tokens:o.max || 600, response_format:{ type:'json_object' } });
+    return JSON.parse(r.choices[0].message.content);
+  });
+  ai.local = true;
+  return ai;
+}
+function aiView(){ if (S.sheet && S.sheet.kind === 'fumi' && S.sheet.tab === 'ai') renderSheet(); }
+
+/* ================= 文章エンジン ================= */
+function profileText(){
+  const p = S.profile || {}, out = [];
+  if (p.callName) out.push('呼び名: ' + p.callName);
+  if (p.speech) out.push('話し方: ' + p.speech);
+  if (p.likes?.length) out.push('好きなもの: ' + p.likes.join('、'));
+  if (p.people?.length) out.push('出てきた人: ' + p.people.map(x => x.name + (x.relation ? '(' + x.relation + ')' : '')).join('、'));
+  if (p.facts?.length) out.push('本人が話したこと: ' + p.facts.join(' / '));
+  if (p.gentle?.length) out.push('そっと扱う話題: ' + p.gentle.join('、'));
+  return out.length ? out.join('\n') : '(まだ何も学んでいない。初対面として接する)';
+}
+function daypart(){ const d = new Date(), hr = d.getHours(); return `${d.getMonth() + 1}月${d.getDate()}日の${hr < 5 ? '深夜' : hr < 11 ? '朝' : hr < 17 ? '昼' : hr < 20 ? '夕方' : '夜'}`; }
+
+function npcPromptLocal(p, mode, angle){
+  const here = S.journal.filter(e => e.p === p.id);
+  const asked = here.filter(e => e.r === 'a').slice(-3).map(e => '・' + e.c.slice(0, 60)).join('\n');
+  const session = S.journal.slice(S.dlg.from).slice(-6).map(e => (e.r === 'u' ? '相手: ' : p.npc.name + ': ') + e.c.slice(0, 200)).join('\n');
+  const pr = S.profile || {}, who = [pr.callName && '呼び名は' + pr.callName, pr.speech, pr.facts && pr.facts.slice(0, 5).join('、')].filter(Boolean).join('。');
+  return `あなたは「${p.npc.name}」という${p.npc.kind}のキャラクター(中身はAI)。${p.name}(${p.country})に住んでいる。
+口調: ${p.npc.voice}
+この場所のこと: ${p.facts}
+相手から聞きたい話題: ${p.theme}
+${who ? '相手について知っていること: ' + who + '\n' : ''}決まり:
+- 日本語で1〜2文話し、最後に答えやすい質問を一つだけする。
+- この場所の話と話題を結びつける。今回は「${angle}」を聞く。
+- 相手が言っていないことを作らない。大げさにほめない。
+- 相手がとても深刻な悩みを話したら、質問をやめて、身近な人や相談窓口に話すようやさしく勧める。
+${asked ? '前にした質問(同じ聞き方はしない):\n' + asked + '\n' : ''}${session ? 'いまの会話:\n' + session + '\n' : ''}
+${mode === 'open' ? '相手が訪ねてきた。あなたから先に声をかける。' : '相手の最後の言葉に返事をする。'}
+${p.npc.name}のせりふだけを書く。`;
+}
+function npcPrompt(p, mode, angle){
+  if (sample && sample.local) return npcPromptLocal(p, mode, angle);
+  const here = S.journal.filter(e => e.p === p.id);
+  const asked = here.filter(e => e.r === 'a').slice(-7).map(e => '・' + e.c.slice(0, 90)).join('\n');
+  const session = S.journal.slice(S.dlg.from).map(e => (e.r === 'u' ? '語り手: ' : p.npc.name + ': ') + e.c).join('\n');
+  const before = here.filter(e => e.r === 'u' && e.t < S.dlg.t0).slice(-6).map(e => '・' + e.c.slice(0, 160)).join('\n');
+  return `${ENGINE}
+
+いまは登場人物「${p.npc.name}」(${p.npc.kind})として話す。
+口調: ${p.npc.voice}
+場所: ${p.name}(${p.country})${p.hidden ? '。地図に載っていない隠れ場所で、見つけてもらえたことを少しうれしがる' : ''}。この場所の事実: ${p.facts}
+ここで聞く主題: 「${p.theme}」 … ${p.guide}
+話し方:
+- 1〜3文。あいづちから入り、ときどきこの場所の暮らしの小話を一文はさむ。最後に答えやすい問いを一つだけ。
+- 問いは、この場所ならではの事実と主題を結びつける。よそでは聞けない聞き方にする。
+- 聞き方は毎回変える。下の「過去にここでした問い」と同じ言い回し・同じ切り口は使わない。今回の切り口は「${angle}」。
+- 語り手がすでに話した内容は覚えているものとして扱い、同じことを一から聞き直さない。続きや別の面を聞く。
+- 大げさにほめない。助言は求められたときだけ短く。
+
+語り手について学んだメモ:
+${profileText()}
+
+いま: ${daypart()}
+語り手が前にここで話したこと:
+${before || '(まだない)'}
+過去にここでした問い(重ならないように):
+${asked || '(まだない)'}
+今回のやりとり:
+${session || '(これから)'}
+
+今回すること: ${mode === 'open' ? '語り手が訪ねてきた。あなたから先に声をかけ、主題についての問いを一つ渡す。' : '語り手の最後の発言に返事をする。'}
+
+出力の形(この形だけ。名前の見出しは書かない):
+せりふ
+###
+語り手が次に返しそうな短い返事を3つ、各14字以内、| で区切って一行で`;
+}
+function parseReply(text, name){
+  const [body, tail] = String(text || '').split('###');
+  const chips = (tail || '').split(/[|｜\n]/).map(x => x.trim()).filter(x => x && x.length <= 18).slice(0, 3);
+  return [body.replace(new RegExp('^' + name + '[:：]\\s*'), '').trim(), chips];
+}
+
+async function npcSpeak(mode){
+  const p = S.dlg.p;
+  S.busy = true; S.chips = []; renderDialog();
+  let reply = '', chips = [];
+  if (sample){
+    try{
+      const r = await sample(npcPrompt(p, mode, pick(ANGLES)), { cache:false, onText: ({text}) => {
+        const b = $('#pending'); if (!b) return;
+        b.textContent = (/^Thinking/.test(text) ? '' : text.split('###')[0].trim()) || '……';
+      }});
+      [reply, chips] = parseReply(r && r.text, p.npc.name);
+    }catch(e){ if (e && e.code === 'not_granted') sample = null; }
+  }
+  if (!S.dlg || S.dlg.p !== p){ S.busy = false; return; }
+  if (!reply){
+    reply = mode === 'open' ? pick(p.qs) : pick(['うんうん。それで、そのあとどうなったの？', 'へえ。そのとき、そばには誰がいた？', 'そっか。そのとき、どんな気持ちだった？', 'なるほどねえ。もう少しくわしく聞いてもいい？']);
+    chips = ['うん', 'うーん、どうだろ', 'また今度話すね'];
+  }
+  if (!chips.length) chips = ['うん', 'うーん、どうだろ', 'もう少しくわしく話すね'];
+  reply = reply.replace(/^[「『]|[」』]$/g, '').slice(0, 400);
+  S.journal.push({ p:p.id, r:'a', c:reply, t:Date.now() });
+  S.chips = chips; S.busy = false; save('journal'); renderDialog();
+  if (mode === 'reply') background();
+}
+function send(preset){
+  const ta = $('#say');
+  const text = (typeof preset === 'string' ? preset : ta.value).trim();
+  if (!text || S.busy || !S.dlg) return;
+  const before = openCount();
+  S.journal.push({ p:S.dlg.p.id, r:'u', c:text.slice(0, 1200), t:Date.now() });
+  if (openCount() > before){ const fresh = PLACES.filter(p => !p.hidden && p.need === userTurns()).map(p => p.name).join('と'); toast(`ふみ「新しい場所に行けるようになったよ。${fresh}！」`); S.hudKey = ''; }
+  npcSpeak('reply');
+}
+
+/* 語りのたびに裏で学び、材料がそろえば勝手に本にする */
+async function background(){
+  if (S.working || !sample) return;
+  S.working = true;
+  try{
+    const n = userTurns();
+    if (n - (S.meta.learnAt || 0) >= LEARN_EVERY) await learn();
+    if (n >= NEED_TURNS && userChars() >= NEED_CHARS && (!S.book || n - (S.book.turns || 0) >= REBUILD_EVERY)) await buildBook();
+  }catch(e){}
+  S.working = false;
+}
+function pairs(since){
+  const out = [];
+  S.journal.forEach((e, i) => {
+    if (e.r !== 'u' || e.t <= since) return;
+    const q = S.journal[i - 1], pl = placeOf(e.p);
+    out.push(`[${pl ? pl.theme : '書房'}]${q && q.r === 'a' ? ' 問い: ' + q.c.slice(0, 100) : ''}\n語り: ${e.c}`);
+  });
+  return out.join('\n\n');
+}
+async function learn(){
+  const since = S.meta.learnT || 0, loc = sample.local, fresh = pairs(since).slice(loc ? -2200 : -9000);
+  if (!fresh) return;
+  const v = await sample.json(`${loc ? '' : ENGINE}
+
+語り手に合わせた会話をするための「メモ」を更新する。いまのメモに、新しい語りから分かったことを足し、古くなった点は直す。
+規則: 語り手が実際に述べたことだけを書く。性格の診断、病名、推測は書かない。
+出力はJSONのみ:
+{"callName":"本人が望む呼び名(述べていなければ空)","speech":"話し方の特徴を一文(敬語かタメ口か、文の長さ、よく使う言い回し)","likes":["好きなもの 最大6"],"people":[{"name":"呼び方","relation":"関係"}],"facts":["本人が話した人生の事実 各30字以内 最大14"],"gentle":["本人がつらそうに話した、そっと扱う話題 最大4"]}
+
+いまのメモ:
+${JSON.stringify(S.profile || {})}
+
+新しい語り:
+${fresh}`, { modelTier:'quick' });
+  if (!v || typeof v !== 'object') return;
+  const arr = (x, n, f) => Array.isArray(x) ? x.slice(0, n).map(f).filter(Boolean) : [];
+  S.profile = { callName:String(v.callName || '').slice(0, 20), speech:String(v.speech || '').slice(0, 120),
+    likes:arr(v.likes, 6, x => String(x).slice(0, 30)), people:arr(v.people, 8, x => x && x.name ? { name:String(x.name).slice(0, 20), relation:String(x.relation || '').slice(0, 20) } : null),
+    facts:arr(v.facts, 14, x => String(x).slice(0, 50)), gentle:arr(v.gentle, 4, x => String(x).slice(0, 30)) };
+  S.meta.learnAt = userTurns(); S.meta.learnT = Date.now();
+  save('me');
+}
+function cleanBook(v){
+  const ch = Array.isArray(v && v.chapters) ? v.chapters.filter(c => c && c.body).slice(0, 10).map(c => ({ heading:String(c.heading || '').slice(0, 60), body:String(c.body).slice(0, 6000) })) : [];
+  if (!ch.length) throw new Error('empty');
+  return { title:String(v.title || '無題').slice(0, 40), blurb:String(v.blurb || '').slice(0, 120), chapters:ch };
+}
+const bookText = b => `題: ${b.title}\n帯: ${b.blurb}\n` + b.chapters.map((c, i) => `【第${i + 1}章 ${c.heading}】\n${c.body}`).join('\n\n');
+/* 端末内AI用: 小さなAIでも書けるよう、話題ごとに一章ずつ書く */
+const headBody = (text, fallback) => { const ls = String(text || '').replace(/```/g, '').trim().split('\n').map(x => x.trim()).filter(Boolean); if (ls.length < 2) return { heading:fallback, body:ls.join('') }; return { heading:ls[0].replace(/^[#＃\s【「『]+|[】」』\s]+$/g, '').replace(/^(見出し|章の見出し)[:：]\s*/, '').slice(0, 30) || fallback, body:ls.slice(1).join('\n').replace(/^本文[:：]\s*/, '') }; };
+async function buildBookLocal(){
+  const old = S.book, now = Date.now(), since = old ? old.upTo : 0, groups = {};
+  S.journal.forEach(e => { if (e.r === 'u' && e.t > since && e.c.length > 3) (groups[e.p] = groups[e.p] || []).push(e.c); });
+  const chapters = old ? plain(old.chapters) : [], notes = (old && old.notes) || [];
+  for (const id of Object.keys(groups)){
+    const pl = placeOf(id), theme = pl ? pl.theme : 'このごろのこと', said = groups[id].join('\n').slice(-1600);
+    if (said.length < 50) continue;
+    const prev = chapters.find(c => c.key === theme);
+    const r = await sample(`次は、ある人が「${theme}」について話した言葉です。これを材料に、その人自身が書いた自叙伝の一章を、日本語で書いてください。
+決まり:
+- 一人称は「私」。話した事実だけを使い、作り話や知らない名前・年・場所を足さない。
+- 200〜450字。質問した相手やAIのことは書かない。
+- 1行目に章の見出し(12字以内)、2行目から本文。
+${notes.length ? '- 本人の希望を必ず守る: ' + notes.join(' / ') + '\n' : ''}${prev ? 'すでにある章(これに新しい話を織り込んで書き直す):\n' + prev.body.slice(0, 700) + '\n' : ''}
+話した言葉:
+${said}`, { max:650 });
+    const hb = headBody(r.text, theme);
+    if (hb.body.length < 40) continue;
+    if (prev){ prev.heading = hb.heading; prev.body = hb.body.slice(0, 3000); } else if (chapters.length < 12) chapters.push({ key:theme, heading:hb.heading, body:hb.body.slice(0, 3000) });
+  }
+  if (!chapters.length) return;
+  let title = old && old.title;
+  if (!title){ try { const t = await sample(`次の章の見出しが並ぶ自叙伝に、題をつけてください。12字以内の題だけを一つ書く。\n${chapters.map(c => '・' + c.heading).join('\n')}`, { max:30 }); title = t.text.split('\n')[0].replace(/[「」『』"題:：\s]/g, '').slice(0, 16); } catch {} }
+  S.book = { title:title || '私のこれまで', blurb:chapters.map(c => c.heading).join('、').slice(0, 60), chapters, pen:old?.pen || '', price:old?.price || 500, notes, upTo:now, turns:userTurns(), ver:(old?.ver || 0) + 1 };
+  S.news = old ? 2 : 1;
+  await save('book'); drawHud();
+  toast(old ? 'ふみ「きみの本に、新しい話を書き足しておいたよ」' : 'ふみ「きみの本ができたよ！ ぼくのところで読んでみて」');
+  if (S.sheet && S.sheet.kind === 'fumi') renderSheet();
+}
+async function reviseLocal(req){
+  const chapters = plain(S.book.chapters);
+  for (const c of chapters){
+    const r = await sample(`次は自叙伝の一章です。本人から直しの希望が届きました。希望のとおりに直してください。
+決まり:
+- 希望がこの章に関係なければ、一字も変えずにそのまま書き写す。
+- 消してほしいと言われた内容は必ず消す。新しく足してよいのは、希望の中に書かれた事実だけ。
+- 1行目に見出し、2行目から本文。ほかのことは書かない。
+希望: ${req.slice(0, 400)}
+
+${c.heading}
+${c.body.slice(0, 1400)}`, { max:800 });
+    const hb = headBody(r.text, c.heading);
+    if (hb.body.length > 30){ c.heading = hb.heading; c.body = hb.body.slice(0, 3000); }
+  }
+  return { reply:'言われたところを直してみたよ。読んでみて、まだ違ったらもう一回教えてね。', title:S.book.title, blurb:S.book.blurb, chapters };
+}
+async function buildBook(){
+  if (sample.local) return buildBookLocal();
+  const old = S.book, now = Date.now();
+  const material = pairs(old ? old.upTo : 0).slice(-22000);
+  if (!material) return;
+  const v = await sample.json(`${ENGINE}
+
+語り手の自叙伝を${old ? '書き足す' : '起こす'}。語り手は世界の名所を旅しながら、住人たちの問いに答えて人生を語っている。
+規則:
+- 一人称(「私」)で、語り手自身の文章として書く。本人の言い回しを少し生かす。
+- 語り手が話した実際の経験だけを書く。話していない出来事・人名・年・場所を作らない。材料が少ない章は短くてよい。
+- 旅の設定(名所、住人の動物、アプリ、AI)には一切触れない。問いは文脈を読むためだけに使う。
+- 章は2〜6つ。主題や時期でまとめ、各章200〜700字。今日の出来事のような日々の話は「このごろ」の章に。
+${old ? '- いまの本の内容は保ち、新しい語りを合う章に織り込むか、新しい章にする。\n- 「本人からの直しの希望」は必ず守りつづける。' : ''}
+- title は本の題(16字以内)、blurb は帯の紹介文(60字以内)。
+出力はJSONのみ: {"title":string,"blurb":string,"chapters":[{"heading":string,"body":string}]}
+${old ? '\nいまの本:\n' + bookText(old) + '\n\n本人からの直しの希望:\n' + ((old.notes || []).map(x => '・' + x).join('\n') || '(なし)') : ''}
+
+${old ? '新しい語り' : '語り'}:
+${material}`, { modelTier:'complex' });
+  const b = cleanBook(v);
+  S.book = { ...b, pen:old?.pen || '', price:old?.price || 500, notes:old?.notes || [], upTo:now, turns:userTurns(), ver:(old?.ver || 0) + 1 };
+  S.news = old ? 2 : 1;
+  await save('book'); drawHud();
+  toast(old ? 'ふみ「きみの本に、新しい話を書き足しておいたよ」' : 'ふみ「きみの本ができたよ！ ぼくのところで読んでみて」');
+  if (S.sheet && S.sheet.kind === 'fumi') renderSheet();
+}
+async function revise(){
+  const ta = $('#fix'), req = ta.value.trim();
+  if (!req || S.busy || !S.book) return;
+  if (!sample) return toast('いまはAIにつながっていないので、直せません。');
+  S.busy = true; S.sheet.fumiSays = '……読み直してるよ。ちょっと待ってね。'; renderSheet();
+  try{
+    const v = sample.local ? await reviseLocal(req) : await sample.json(`${ENGINE}
+
+あなたは書房の文鳥「ふみ」(一人称「ぼく」、やわらかいタメ口)。語り手が自分の自叙伝を読んで、変えてほしいところを話してくれた。希望どおりに本を直す。
+規則:
+- 今回の希望と、これまでの直しの希望をすべて守る。消してほしいと言われた内容は必ず消す。
+- 新しく足してよい事実は、語り手が今回の希望の中で述べたことだけ。それ以外は作らない。
+- 希望に関係のない章は変えない。
+- reply には、どこをどう直したかを、ふみのせりふで1〜2文。
+出力はJSONのみ: {"reply":string,"title":string,"blurb":string,"chapters":[{"heading":string,"body":string}]}
+
+いまの本:
+${bookText(S.book)}
+
+これまでの直しの希望:
+${(S.book.notes || []).map(x => '・' + x).join('\n') || '(なし)'}
+
+今回の希望:
+${req.slice(0, 1500)}`, { modelTier:'complex' });
+    const b = cleanBook(v); if (sample.local) b.chapters.forEach((c, i) => { c.key = S.book.chapters[i] && S.book.chapters[i].key; });
+    S.book = { ...S.book, ...b, notes:(S.book.notes || []).concat(req.slice(0, 300)).slice(-20), ver:(S.book.ver || 0) + 1 };
+    S.sheet.fumiSays = String(v.reply || '直しておいたよ。読んでみて。').slice(0, 300) + (myPub() ? '\n（書店の棚の本は、下の「改訂版を並べる」を押すまで前のままだよ）' : '');
+    await save('book');
+  }catch(e){ S.sheet.fumiSays = 'ごめん、うまく直せなかった。もう一回、話してみてくれる？'; }
+  S.busy = false; renderSheet();
+}
+
+/* ================= 会話の画面 ================= */
+function portrait(sp, size){ const c = h('canvas', { width:size * 2, height:size * 2, 'aria-hidden':'true' }); critter(c.getContext('2d'), size, size * 2 - 3, size * .82, sp); return c; }
+function openDialog(p){
+  if (S.dlg || S.sheet || !S.avatar) return;
+  S.dlg = { p, from:S.journal.length, t0:Date.now() }; S.tx = S.ty = null;
+  $('#hint').hidden = true; drawHud(); renderDialog(); save('me');
+  npcSpeak('open');
+}
+function closeDialog(){ S.dlg = null; S.busy = false; S.chips = []; $('#dialog').hidden = true; drawHud(); $('#cv').focus(); }
+function renderDialog(){
+  const d = $('#dialog');
+  if (!S.dlg){ d.hidden = true; return; }
+  const p = S.dlg.p, old = $('#say'), keep = old ? old.value : '';
+  const lines = S.journal.slice(S.dlg.from);
+  d.replaceChildren(
+    h('div', { class:'dhead' }, portrait(p.npc.sp, 84),
+      h('div', null, h('b', null, p.npc.name), h('span', { class:'tag' }, p.theme), h('div', { class:'sub' }, `${p.name}（${p.country}）の${p.npc.kind}`)),
+      h('button', { class:'btn ghost x', type:'button', onclick:closeDialog }, 'またね')),
+    h('div', { class:'log' },
+      lines.slice(-6).map(e => h('div', { class:'m ' + e.r }, e.c)),
+      S.busy ? h('div', { class:'m a', id:'pending' }, '……') : null),
+    !S.busy && S.chips.length ? h('div', { class:'chips' }, S.chips.map(c => h('button', { class:'chip', type:'button', onclick:() => send(c) }, c))) : null,
+    h('form', { class:'say', onsubmit:e => { e.preventDefault(); send(); } },
+      h('textarea', { id:'say', rows:2, maxLength:1200, 'aria-label':p.npc.name + 'に話す', placeholder:'ひとことでも、長くても',
+        onkeydown:e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); } } }),
+      h('button', { class:'btn', type:'submit', disabled:S.busy }, S.busy ? '考え中…' : '話す')),
+    !sample && S.ready ? h('p', { class:'note' }, 'いまはAIにつながっていないため、住人は用意したせりふで話します。', h('button', { class:'chip', type:'button', style:'margin-left:8px', onclick:() => openSheet('fumi', 'ai') }, 'AIの設定をひらく')) : null
+  );
+  d.hidden = false;
+  const ta = $('#say'); if (keep && !lines.length) ta.value = keep;
+  if (!S.busy) ta.focus({ preventScroll:true });
+  d.scrollTop = d.scrollHeight;
+}
+
+/* ================= ふみ・行き先・キャラ選び ================= */
+function openSheet(kind, tab){ if (S.dlg) closeDialog(); S.sheet = { kind, tab:tab || 'book', open:null, reading:false, fumiSays:'' }; if (kind === 'fumi') { S.news = 0; drawHud(); } renderSheet(); }
+function closeSheet(){ S.sheet = null; $('#sheet').hidden = true; $('#cv').focus(); }
+function renderSheet(){
+  const el = $('#sheet');
+  if (!S.sheet){ el.hidden = true; return; }
+  const keep = $('#fix') ? $('#fix').value : '';
+  const body = S.sheet.kind === 'pick' ? sheetPick() : S.sheet.kind === 'go' ? sheetGo() : sheetFumi();
+  el.replaceChildren(h('div', { class:'in' }, body));
+  el.hidden = false;
+  if (keep && $('#fix') && S.busy) $('#fix').value = keep;
+}
+function sheetPick(){
+  const first = !S.avatar;
+  return [
+    h('div', { class:'shead' }, h('h2', null, first ? '旅に出るキャラクターを選んでください' : 'キャラクターを変える'),
+      !first ? h('button', { class:'btn ghost x', type:'button', onclick:closeSheet }, '旅に戻る') : null),
+    h('p', { class:'lead' }, first ? '世界の名所を歩いて、そこに住む住人たちと話します。話したことは、相棒の文鳥「ふみ」がいつのまにか一冊の本にまとめます。' : 'いつでも変えられます。'),
+    h('div', { class:'grid' }, AVATARS.map(a => h('button', { class:'pickb', type:'button', 'aria-pressed':String(S.avatar === a.id),
+      onclick:() => { S.avatar = a.id; save('me'); closeSheet(); } }, portrait(a.sp, 96), a.label)))
+  ];
+}
+function sheetGo(){
+  const spots = PLACES.filter(p => !p.hidden), open = spots.filter(isOpen), locked = spots.filter(p => !isOpen(p)), hid = PLACES.filter(p => p.hidden), found = hid.filter(isOpen);
+  const next = locked.length ? Math.min(...locked.map(p => p.need)) - userTurns() : 0;
+  const btn = p => { const n = S.journal.filter(e => e.p === p.id && e.r === 'u').length;
+    return h('button', { class:'pickb gob', type:'button', onclick:() => { if (p.minZ && S.z < p.minZ + 1) S.z = p.minZ + 1.5; else if (!p.minZ && S.z > 2.6) S.z = 2; S.x = p.x - 10 * sk() / S.z; S.y = p.y + 64 * sk() / S.z; S.tx = S.ty = null; S.hudKey = ''; closeSheet(); } },
+      h('span', null, p.name, h('span', { class:'tag' }, p.theme)),
+      h('small', null, `${p.jp ? '日本・' : ''}${p.country} ・ ${p.npc.kind}の${p.npc.name} ・ ${n ? n + '回話した' : 'まだ話していない'}`)); };
+  const wide = 'grid-template-columns:repeat(auto-fill,minmax(240px,1fr))';
+  return [
+    h('div', { class:'shead' }, h('h2', null, '行き先'), h('button', { class:'btn ghost x', type:'button', onclick:closeSheet }, '旅に戻る')),
+    h('p', { class:'lead' }, '歩いて行くこともできます。選ぶと、その名所のそばまで飛びます。'),
+    h('p', { class:'pen', style:'margin:0' }, `名所 ${open.length} / ${SPOTS} か所。住人と話した回数がふえると、雲が晴れて行ける場所がふえます（いま ${userTurns()} 回` + (locked.length ? `、次はあと ${next} 回）。` : '）。')),
+    h('h3', { style:'margin:0;font-size:16px' }, `日本の名所（${open.filter(p => p.jp).length} / ${spots.filter(p => p.jp).length}）`),
+    h('div', { class:'grid', style:wide }, open.filter(p => p.jp).map(btn)),
+    h('h3', { style:'margin:0;font-size:16px' }, `世界の名所（${open.filter(p => !p.jp).length} / ${spots.filter(p => !p.jp).length}）`),
+    h('div', { class:'grid', style:wide }, open.filter(p => !p.jp).map(btn)),
+    h('div', { class:'card' },
+      h('h3', null, `かくれ場所　${found.length} / ${hid.length}`),
+      h('p', { class:'pen', style:'margin:0' }, '地図に載っていない場所があります。近くを通ると見つかります。'),
+      found.length ? h('div', { class:'grid', style:wide }, found.map(btn)) : null,
+      hid.length > found.length ? h('div', null, h('p', { class:'pen', style:'margin:0 0 4px' }, 'ふみが聞いたうわさ：'), h('ul', { style:'margin:0;padding-left:1.2em;font-size:14px' }, hid.filter(p => !isOpen(p)).map(p => h('li', null, p.hint)))) : null)
+  ];
+}
+const fumiLine = text => h('div', { class:'fumi' }, svg(), h('div', { class:'m a' }, text));
+function reader(b){ return h('div', { class:'tategaki', tabIndex:0, 'aria-label':b.title + ' 本文' }, h('h3', null, b.title), b.chapters.map(c => [h('h4', null, c.heading), h('p', null, c.body)])); }
+
+function sheetFumi(){
+  const t = S.sheet.tab;
+  const seg = (id, label) => h('button', { type:'button', 'aria-pressed':String(t === id), onclick:() => { S.sheet.tab = id; S.sheet.reading = false; renderSheet(); } }, label);
+  return [
+    h('div', { class:'shead' }, svg(), h('h2', null, 'ふみ　書房の文鳥'), h('button', { class:'btn ghost x', type:'button', onclick:closeSheet }, '旅に戻る')),
+    h('div', { class:'seg' }, seg('book', 'わたしの本'), seg('shop', '書店の棚'), seg('memo', 'ふみのメモ'), seg('ai', 'AIの設定')),
+    t === 'book' ? fumiBook() : t === 'shop' ? fumiShop() : t === 'ai' ? fumiAI() : fumiMemo()
+  ];
+}
+function fumiBook(){
+  const b = S.book;
+  if (!b){
+    const prog = Math.min(1, userTurns() / NEED_TURNS, userChars() / NEED_CHARS);
+    return [
+      fumiLine('旅先で話してくれたことは、ぼくが全部ひろって、勝手に一冊にまとめておくよ。きみは歩いて、話すだけでいいんだ。'),
+      h('div', { class:'meter' }, '本の材料', h('i', null, h('b', { style:'width:' + Math.round(prog * 100) + '%' })), prog >= 1 ? (sample ? 'いま書いているところ' : 'AIの設定をすると本になります') : 'あつめ中'),
+      prog >= 1 && sample && !S.working ? h('div', null, h('button', { class:'btn ghost', type:'button', onclick:() => { background(); toast('ふみが書きはじめました。少し待ってね。'); } }, 'ふみに声をかける')) : null
+    ];
+  }
+  const pub = myPub(), n = pub ? sold(pub.id) : 0;
+  return [
+    fumiLine(S.sheet.fumiSays || `できてるよ、「${b.title}」。全部きみが話してくれた本当のことだけで書いたんだ。読んでみて、変えたいところがあったら、ぼくに話してね。`),
+    reader(b),
+    h('form', { class:'card', onsubmit:e => { e.preventDefault(); revise(); } },
+      h('h3', null, '変えてほしいところを、ふみに話す'),
+      h('textarea', { id:'fix', rows:3, maxLength:1500, 'aria-label':'変えてほしいところ', placeholder:'例：第2章の妹の名前は出さないで。部活の話は、もっと悔しかった感じにしてほしい。' }),
+      h('div', null, h('button', { class:'btn', type:'submit', disabled:S.busy }, S.busy ? 'ふみが直しています…' : 'ふみに話す'))),
+    h('div', { class:'card' },
+      h('h3', null, pub ? '書店に並んでいます' : '書店に並べる（並べるかどうかは、あなたが決めます）'),
+      pub ? h('p', { class:'pen', style:'margin:0' }, `${n}部売れて、印税は ${yen(n * pub.price * AUTHOR_RATE)} です（決済は模擬です）。`) : null,
+      h('div', { class:'row' },
+        h('label', { class:'f', htmlFor:'pen', style:'flex:1;min-width:200px' }, '筆名（本名でなくてかまいません）', h('input', { id:'pen', type:'text', maxLength:30, value:b.pen || '', oninput:e => { b.pen = e.target.value; } })),
+        h('label', { class:'f', htmlFor:'price', style:'width:140px' }, '売価', h('select', { id:'price', onchange:e => { b.price = Number(e.target.value); } }, PRICES.map(p => h('option', { value:p, selected:Number(b.price) === p }, yen(p)))))),
+      h('p', { class:'pen', style:'margin:0' }, '一冊売れるごとに、売価の70%があなたの印税、30%が書店の取り分です。'),
+      h('label', { class:'chk', htmlFor:'c1' }, h('input', { id:'c1', type:'checkbox' }), '家族・友人・勤め先など、実在の人や場所が特定されないか読み直した。'),
+      h('label', { class:'chk', htmlFor:'c2' }, h('input', { id:'c2', type:'checkbox' }), '並べた本は、この書店を開ける人なら誰でも読めるようになると理解した。'),
+      h('div', { class:'row' },
+        h('button', { class:'btn obi', type:'button', onclick:publish }, pub ? '改訂版を並べる' : '書店に並べる'),
+        pub ? h('button', { class:'btn ghost', type:'button', onclick:unpublish }, '棚から下ろす') : null))
+  ];
+}
+async function publish(){
+  const b = S.book;
+  if (!b) return;
+  if (!(b.pen || '').trim()) return toast('筆名を入れてください。');
+  if (!$('#c1').checked || !$('#c2').checked) return toast('二つの確認にチェックを入れてください。');
+  const body = { title:b.title, pen:b.pen.trim(), blurb:b.blurb, chapters:plain(b.chapters), price:Number(b.price) || 500, publishedAt:Date.now() };
+  try{
+    await save('book');
+    if (db && S.uid) await db.doc('books/' + S.uid).set(body);
+    else { S.books = S.books.filter(x => x.id !== 'local').concat({ id:'local', ...body }); keepLocal(); }
+    toast('書店に並びました。'); S.sheet.tab = 'shop'; S.sheet.open = me(); renderSheet();
+  }catch(e){ toast('書店に並べられませんでした。共有の権限が「閲覧のみ」だと出版できません。'); }
+}
+async function unpublish(){
+  try{
+    if (db && S.uid) await db.doc('books/' + S.uid).delete();
+    else { S.books = S.books.filter(x => x.id !== 'local'); keepLocal(); }
+    toast('棚から下ろしました。'); renderSheet();
+  }catch(e){ toast('棚から下ろせませんでした。'); }
+}
+async function buy(id){
+  const mine = myItems();
+  if (mine.includes(id)) return;
+  const items = mine.concat(id);
+  try{
+    if (db && S.uid) await db.doc('purchases/' + S.uid).set({ items, t:Date.now() });
+    S.purch = S.purch.filter(p => p.id !== me()).concat({ id:me(), items }); keepLocal();
+    S.sheet.reading = true; toast('模擬購入しました。実際のお金は動いていません。'); renderSheet();
+  }catch(e){ toast('購入を記録できませんでした。共有の権限が「閲覧のみ」だと購入できません。'); }
+}
+function fumiShop(){
+  const books = S.books.slice().sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+  const solo = !(db && S.uid) ? h('p', { class:'note' }, 'サイト版の棚は、いまはこの端末の中だけです。みんなの本が並ぶ共有の書店は、次の段階でつなぎます。') : null;
+  if (!books.length) return [fumiLine('棚はまだ空っぽ。最初の一冊は、きみの本かもしれないね。'), solo];
+  const cur = books.find(b => b.id === S.sheet.open) || books[0];
+  const own = cur.id === me(), has = own || myItems().includes(cur.id);
+  const first = (cur.chapters && cur.chapters[0] && cur.chapters[0].body) || '';
+  const gross = S.books.reduce((s, b) => s + sold(b.id) * b.price, 0);
+  return [
+    fumiLine('ここには、旅で語られた誰かの人生が並んでるよ。背表紙を選ぶと立ち読みできる。'), solo,
+    h('div', { class:'shelfbox' }, h('div', { class:'shelf' }, books.map(b => h('button', { class:'spine ' + hue(b.id), type:'button', title:b.title, 'aria-pressed':String(b.id === cur.id),
+      onclick:() => { S.sheet.open = b.id; S.sheet.reading = false; renderSheet(); } }, h('span', null, b.title))))),
+    h('div', { class:'card' },
+      h('h3', { style:'font-size:20px' }, cur.title, cur.sample ? h('span', { class:'tag' }, '見本') : null, own ? h('span', { class:'tag' }, 'あなたの本') : null),
+      h('div', { class:'pen' }, `${cur.pen} 著 ・ ${(cur.chapters || []).length}章 ・ ${yen(cur.price)} ・ ${sold(cur.id)}部`),
+      cur.blurb ? h('p', { style:'margin:0' }, cur.blurb) : null,
+      cur.sample ? h('p', { class:'note' }, 'これは棚の見え方を示すための見本で、架空の人物の話です。') : null,
+      !has ? h('p', { style:'margin:0;font-family:var(--f-book)' }, first.slice(0, 110) + (first.length > 110 ? '……' : '')) : null,
+      h('div', { class:'row' },
+        has ? h('button', { class:'btn', type:'button', onclick:() => { S.sheet.reading = !S.sheet.reading; renderSheet(); } }, S.sheet.reading ? '本を閉じる' : '読む')
+            : h('button', { class:'btn obi', type:'button', onclick:() => buy(cur.id) }, `模擬購入する ${yen(cur.price)}`),
+        !has ? h('span', { class:'pen' }, `うち ${yen(cur.price * AUTHOR_RATE)} が著者の印税になります（決済は模擬です）`) : null)),
+    has && S.sheet.reading ? reader(cur) : null,
+    S.isOwner ? h('p', { class:'note' }, `書店主の取り分: ${yen(gross * (1 - AUTHOR_RATE))}（総売上 ${yen(gross)} の30%。決済は模擬です）`) : null
+  ];
+}
+function fumiAI(){
+  const inPreview = !!window.claude, usingLocal = sample && sample.local, usingClaude = sample && !sample.local;
+  const now = usingLocal ? `いまは、この端末の中のAI（${LAI.model}）で動いています。会話は外に送られません。` : usingClaude ? 'いまは Claude につながっています（このプレビュー画面の中だけの接続です）。' : 'いまはAIにつながっていません。住人は用意したせりふで話し、本は作られません。';
+  const sel = LAI.model || LOCAL_MODELS[0].id;
+  return [
+    fumiLine(usingLocal ? 'ぼくも住人たちも、いまはこの端末の中だけで考えてるよ。' : '端末の中にAIを入れると、通信も料金もなしで、ぼくたちと話せるようになるよ。'),
+    h('p', { class:'note' }, now),
+    h('div', { class:'card' },
+      h('h3', null, 'この端末の中でAIを動かす'),
+      h('p', { class:'pen', style:'margin:0' }, '初回だけAIのモデルをダウンロードします（1〜数GB。Wi-Fiをおすすめします）。二回目からはすぐ使えます。キーも料金もいりません。パソコンのChromeかEdgeで動きます。'),
+      h('label', { class:'f', htmlFor:'aimodel' }, 'モデル', h('select', { id:'aimodel', disabled:LAI.state === 'loading' }, LOCAL_MODELS.map(m => h('option', { value:m.id, selected:m.id === sel }, m.label)))),
+      h('div', { class:'row' }, h('button', { class:'btn obi', type:'button', disabled:LAI.state === 'loading', onclick:() => loadLocalAI($('#aimodel').value) }, LAI.state === 'loading' ? '読み込んでいます…' : LAI.state === 'ready' ? 'このモデルに切り替える' : 'ダウンロードして使う')),
+      LAI.state === 'loading' ? h('div', null, h('div', { class:'meter' }, h('i', { style:'max-width:none' }, h('b', { id:'aibar', style:'width:' + Math.round(LAI.progress * 100) + '%' }))), h('p', { class:'pen', id:'aitext', style:'margin:6px 0 0;overflow-wrap:anywhere' }, LAI.text)) : null,
+      LAI.state === 'nogpu' ? h('p', { class:'note' }, 'このブラウザでは動かせません（WebGPUという機能が必要です）。パソコンのChromeかEdgeの新しい版で開いてください。') : null,
+      LAI.state === 'error' ? h('p', { class:'note' }, (inPreview ? 'このプレビュー画面の中では、外からモデルを読み込めません。サイトとして公開した版で使えます。' : '読み込めませんでした。通信の状態と空きメモリを確かめて、軽いモデルで試してください。') + '（' + LAI.err + '）') : null,
+      h('p', { class:'pen', style:'margin:0' }, '小さなAIなので、文章の自然さや本のまとまりは大きなAIより落ちます。話していないことを書いてしまうこともあるので、本は読んで、違うところをふみに伝えてください。'))
+  ];
+}
+function fumiMemo(){
+  const p = S.profile || {}, has = p.speech || p.callName || (p.facts && p.facts.length);
+  const row = (k, v) => v ? [h('dt', null, k), h('dd', null, v)] : null;
+  return [
+    fumiLine(has ? 'きみと話しやすくなるように、ぼくが覚えたことだよ。住人たちもこのメモを見て、きみに合わせて話すんだ。' : 'まだ何も覚えてないよ。何度か話すと、きみの話し方や好きなものを少しずつ覚えていくね。'),
+    has ? h('div', { class:'card' }, h('dl', { class:'memo' },
+      row('呼び名', p.callName), row('話し方', p.speech), row('好きなもの', (p.likes || []).join('、')),
+      row('出てきた人', (p.people || []).map(x => x.name + (x.relation ? '（' + x.relation + '）' : '')).join('、')),
+      row('話してくれたこと', (p.facts || []).join(' / ')), row('そっとしておく話題', (p.gentle || []).join('、')))) : null,
+    h('p', { class:'pen', style:'margin:0' }, `これまでに ${userTurns()} 回話しました。会話とメモを読めるのはあなただけです。`),
+    h('div', { class:'row' },
+      has ? h('button', { class:'btn ghost', type:'button', onclick:() => { S.profile = {}; S.meta.learnAt = userTurns(); S.meta.learnT = Date.now(); save('me'); toast('メモを忘れました。'); renderSheet(); } }, 'メモを忘れてもらう') : null,
+      h('button', { class:'btn ghost', type:'button', onclick:() => openSheet('pick') }, 'キャラクターを変える'))
+  ];
+}
+
+/* ================= 地図と歩き ================= */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let vw = 800, vh = 600, dpr = 1, landCv = null, jpCv = null, landPath = null, camx = 0, camy = 0, MS = 1;
+const JP = { x:wx(122), y:wy(47), w:(150 - 122) * PX, h:(47 - 23) * PX, k:4 };
+const zMin = () => Math.max(vw / W, vh / H), zMax = 7;
+const sk = () => Math.max(.62, Math.min(1.3, Math.pow(S.z, .4)));
+function zoomTo(z){ S.z = Math.max(zMin(), Math.min(zMax, z)); S.hudKey = ''; $('#hint').hidden = true; }
+function blob(c, lon, lat, rx, ry, col, a){
+  c.save(); c.translate(wx(lon), wy(lat)); c.scale(rx * PX, ry * PX);
+  const g = c.createRadialGradient(0, 0, .15, 0, 0, 1); const n = parseInt(col.slice(1), 16); g.addColorStop(0, col); g.addColorStop(.3, col); g.addColorStop(1, `rgba(${n >> 16},${n >> 8 & 255},${n & 255},0)`);
+  c.globalAlpha = a || 1; c.fillStyle = g; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore();
+}
+function range(c, pts, snow){
+  const m = MS;
+  for (let i = 0; i < pts.length - 1; i++){
+    const [a, b, d, e] = [wx(pts[i][0]), wy(pts[i][1]), wx(pts[i + 1][0]), wy(pts[i + 1][1])], n = Math.max(1, Math.round(Math.hypot(d - a, e - b) / (15 * m)));
+    for (let k = 0; k <= n; k++){
+      const x = a + (d - a) * k / n + ((k * 7 + i * 13) % 9 - 4) * m, y = b + (e - b) * k / n + ((k * 5 + i * 3) % 7 - 3) * m, hh = (13 + (k * 11 + i * 5) % 8) * m;
+      c.beginPath(); c.moveTo(x - 10 * m, y); c.lineTo(x, y - hh); c.lineTo(x + 2 * m, y); c.closePath(); c.fillStyle = '#b9a98c'; c.fill();
+      c.beginPath(); c.moveTo(x, y - hh); c.lineTo(x + 11 * m, y); c.lineTo(x + 2 * m, y); c.closePath(); c.fillStyle = '#857761'; c.fill();
+      if (snow){ c.beginPath(); c.moveTo(x - 3.5 * m, y - hh * .65); c.lineTo(x, y - hh); c.lineTo(x + 4 * m, y - hh * .65); c.lineTo(x, y - hh * .55); c.closePath(); c.fillStyle = '#fff'; c.fill(); }
+    }
+  }
+}
+function buildLand(){
+  landPath = new Path2D();
+  for (const r of (window.LAND || [])){
+    for (let i = 0; i < r.length; i += 2){ const x = r[i] * PX, y = wy(r[i + 1]); i ? landPath.lineTo(x, y) : landPath.moveTo(x, y); }
+    landPath.closePath();
+  }
+  landCv = document.createElement('canvas'); landCv.width = W; landCv.height = H;
+  MS = 1; paint(landCv.getContext('2d'), 1);
+  /* 日本のまわりだけ4倍の細かさで描いておき、拡大したときに重ねる */
+  jpCv = document.createElement('canvas'); jpCv.width = JP.w * JP.k; jpCv.height = JP.h * JP.k;
+  const j = jpCv.getContext('2d'); j.setTransform(JP.k, 0, 0, JP.k, -JP.x * JP.k, -JP.y * JP.k); MS = .32; paint(j, .32); MS = 1;
+}
+function paint(c, f){
+  /* 海: 沖は深い青、岸に近いほど浅い色 */
+  const sea = c.createLinearGradient(0, 0, 0, H); sea.addColorStop(0, '#6f9fbe'); sea.addColorStop(.45, '#4f8fb8'); sea.addColorStop(1, '#5b93b6');
+  c.fillStyle = sea; c.fillRect(0, 0, W, H);
+  c.lineJoin = 'round';
+  [[70, '#5c9bc0'], [44, '#6dabc9'], [24, '#85bed4'], [10, '#a9d6e0']].forEach(([w, col]) => { c.strokeStyle = col; c.lineWidth = w; c.stroke(landPath); });
+  c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 1;
+  for (let lon = -180; lon < 180; lon += 30){ const x = wx(lon); c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  for (let lat = -60; lat <= 60; lat += 30){ const y = wy(lat); c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+  /* 陸: 緯度ごとの植生、砂漠、熱帯雨林、氷、山脈、大河 */
+  c.save(); c.clip(landPath, 'evenodd');
+  const g = c.createLinearGradient(0, 0, 0, H), at = (lat, col) => g.addColorStop((LAT0 - lat) / 140, col);
+  at(80, '#eef2f1'); at(72, '#dfe6df'); at(66, '#9fb096'); at(58, '#6c9461'); at(47, '#8fb86a'); at(38, '#a9c070'); at(28, '#c9c486'); at(17, '#a3bf66'); at(6, '#5a9c50'); at(-6, '#5a9c50'); at(-16, '#a3bf66'); at(-27, '#c9c486'); at(-38, '#9cbd6c'); at(-50, '#8aa77a'); at(-60, '#b9c4b4');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  [[8, 23, 27, 9], [-8, 22, 12, 7], [47, 23, 10, 8], [58, 31, 9, 5], [70, 27, 5, 4], [62, 42, 10, 4], [86, 39, 9, 4], [104, 42, 10, 4], [133, -25, 14, 8], [20, -24, 7, 6], [-69, -23, 2.5, 7], [-68, -43, 4, 7], [-112, 33, 7, 6], [-104, 26, 5, 5], [44, 8, 6, 5]].forEach(b => blob(c, b[0], b[1], b[2], b[3], '#e3cc98', .95));
+  [[-62, -4, 14, 9], [22, 0, 10, 6], [103, 16, 7, 6], [112, 0, 14, 7], [143, -6, 7, 4], [-88, 14, 5, 4], [-6, 7, 8, 3], [82, 22, 7, 4], [-76, 6, 5, 5]].forEach(b => blob(c, b[0], b[1], b[2], b[3], '#3f8748', .9));
+  [[-41, 73, 16, 11], [-95, 78, 28, 6], [18, 79, 10, 3], [100, 78, 30, 4], [-49, -50, 0, 0]].forEach(b => b[2] && blob(c, b[0], b[1], b[2], b[3], '#f5f8f9', 1));
+  blob(c, 88, 33, 11, 4, '#cdbf9c', .9); blob(c, -106, 41, 5, 7, '#bdb58e', .7); blob(c, 25, 62, 12, 5, '#5f8a5c', .6); blob(c, 95, 60, 30, 6, '#5f8a5c', .6); blob(c, -100, 56, 26, 6, '#5f8a5c', .6);
+  c.strokeStyle = '#5c9bc0'; c.lineWidth = 1.7 * f; c.lineCap = 'round';
+  [[[31,31],[31.5,25],[33,19],[32.5,13],[32,4]], [[-50,-1],[-58,-3],[-66,-4],[-73,-5]], [[-90,29.5],[-91,35],[-90,40],[-93,45]], [[121,31.5],[112,30],[105,29.5],[98,31]], [[118,37.5],[110,35],[104,36],[98,35]], [[88.5,22.5],[83,25.5],[78,29]], [[68,24],[71,29],[74,33]], [[12.5,-6],[18,-2],[24,1.5],[26,-4]], [[48,46],[45,49],[49,55],[40,57]], [[127,72],[128,64],[118,60],[108,55]], [[82,71],[88,62],[92,56]], [[70,66],[73,58],[80,52]], [[6,5],[4,11],[-3,16.5],[-8,12]], [[105.5,10],[105,15],[101,20],[98,27]], [[-58,-34],[-58,-27],[-52,-20]], [[-134,69],[-125,65],[-118,61]], [[29,45],[22,44.5],[17,47.5],[11,48.5]], [[139.5,-35.5],[142,-34],[146,-36]], [[36,-18.5],[30,-16],[25,-17.5],[23,-13]]]
+    .forEach(r => { const q = r.map(p => [wx(p[0]), wy(p[1])]); c.beginPath(); c.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length - 1; i++) c.quadraticCurveTo(q[i][0], q[i][1], (q[i][0] + q[i + 1][0]) / 2, (q[i][1] + q[i + 1][1]) / 2); c.lineTo(q[q.length - 1][0], q[q.length - 1][1]); c.stroke(); });
+  range(c, [[72,36],[78,32.5],[84,29],[90,28],[97,28.5]], 1); range(c, [[70,39],[78,42],[86,43]], 1); range(c, [[88,49],[96,48]], 1);
+  range(c, [[-77,7],[-78,-4],[-75,-12],[-69,-18],[-70,-28],[-71,-38],[-73,-48]], 1); range(c, [[-134,59],[-124,52],[-116,46],[-110,41],[-106,35]], 1); range(c, [[-152,62.5],[-142,61]], 1);
+  range(c, [[6,45],[10,46.5],[14,47]], 1); range(c, [[40,43.5],[47,42]], 1); range(c, [[8,60],[14,65],[19,68.5]], 1); range(c, [[60,66],[59,58],[58,52]], 0);
+  range(c, [[-7,31],[0,34],[6,35.5]], 0); range(c, [[47,34.5],[51,31],[55,28.5]], 0); range(c, [[37,13],[39,8]], 0); range(c, [[146,-18],[150,-27],[148,-36]], 0);
+  range(c, [[-84,35],[-79,39],[-74,43]], 0); range(c, [[137,35.3],[138.6,36.8]], 1); range(c, [[26,-30],[29,-29]], 0); range(c, [[-4,43],[1,42.6]], 0); range(c, [[23,46.5],[25.5,45.5]], 0); range(c, [[168,-45],[171,-43]], 1);
+  if (f < 1){ range(c, [[142.6,42.2],[143,43.4]], 1); range(c, [[140.9,39.9],[140.7,38.9],[140.4,37.9]], 0); range(c, [[132.4,34.9],[133.6,35.1],[134.6,35.2]], 0); range(c, [[133.1,33.8],[134.1,33.9]], 0); range(c, [[131,32.6],[131.2,33.2]], 0); range(c, [[137.3,36.3],[137.7,35.6]], 1); range(c, [[138.9,36.8],[139.3,37]], 0); }
+  c.restore();
+  c.strokeStyle = '#4f7d5a'; c.lineWidth = 1.4 * f; c.stroke(landPath);
+  if (f < 1) return;
+  c.fillStyle = 'rgba(255,255,255,.55)'; c.font = 'italic 700 24px "Shippori Mincho",serif'; c.textAlign = 'center';
+  [['太 平 洋', 190, 8], ['大 西 洋', -42, 22], ['イ ン ド 洋', 78, -22], ['南 太 平 洋', -140, -36], ['北 極 海', 150, 76]].forEach(([t, lon, lat]) => c.fillText(t, wx(lon), wy(lat)));
+}
+function resize(){
+  const r = $('#stage').getBoundingClientRect();
+  dpr = Math.min(2, window.devicePixelRatio || 1); vw = Math.max(200, r.width); vh = Math.max(200, r.height);
+  cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr);
+}
+function P(c, pts, fill){ c.beginPath(); for (let i = 0; i < pts.length; i += 2) i ? c.lineTo(pts[i], pts[i + 1]) : c.moveTo(pts[0], pts[1]); c.closePath(); c.fillStyle = fill; c.fill(); c.stroke(); }
+function R(c, x, y, w, hh, fill){ c.fillStyle = fill; c.fillRect(x, y, w, hh); c.strokeRect(x, y, w, hh); }
+const LM = {
+  fuji(c){ P(c, [-48,0,-11,-54,11,-54,48,0], '#6f8fc0'); P(c, [-19,-42,-11,-54,11,-54,19,-42,9,-36,0,-44,-9,-36], '#fff'); },
+  wall(c){ R(c, -46,-16,92,16,'#bfa98a'); for (let x = -44; x < 44; x += 12) R(c, x,-22,7,6,'#bfa98a'); R(c, -54,-34,18,34,'#a8926f'); R(c, 36,-34,18,34,'#a8926f'); },
+  taj(c){ R(c, -40,-8,80,8,'#f4f1ea'); R(c, -26,-30,52,22,'#fff'); c.beginPath(); c.arc(0,-34,15,Math.PI,0); c.quadraticCurveTo(0,-62,-15,-34); c.fillStyle = '#fff'; c.fill(); c.stroke(); R(c, -40,-40,6,32,'#fff'); R(c, 34,-40,6,32,'#fff'); },
+  giza(c){ P(c, [-52,0,-22,-40,8,0], '#e0bd78'); P(c, [-14,0,22,-52,58,0], '#ecca86'); },
+  kili(c){ P(c, [-58,0,-22,-36,20,-36,58,0], '#8a7a66'); P(c, [-28,-30,-22,-36,20,-36,27,-30,12,-26,0,-31,-12,-26], '#fff'); },
+  eiffel(c){ P(c, [-22,0,-5,-44,-3,-66,3,-66,5,-44,22,0,10,0,0,-26,-10,0], '#7a6f66'); R(c, -12,-24,24,4,'#7a6f66'); R(c, -7,-46,14,3,'#7a6f66'); },
+  liberty(c){ R(c, -14,-16,28,16,'#c9c2b0'); P(c, [-9,-16,-6,-44,6,-44,9,-16], '#7fbfa8'); c.beginPath(); c.arc(0,-49,6,0,7); c.fillStyle = '#7fbfa8'; c.fill(); c.stroke(); P(c, [5,-42,13,-62,16,-60,9,-40], '#7fbfa8'); P(c, [11,-62,15,-72,19,-62], '#f0b429'); },
+  machu(c){ P(c, [-10,0,18,-58,42,0], '#6e9a5c'); P(c, [-50,0,-44,-14,6,-14,12,0], '#b7b09a'); c.beginPath(); c.moveTo(-46,-7); c.lineTo(8,-7); c.stroke(); },
+  moai(c){ c.beginPath(); c.ellipse(0,0,34,8,0,0,7); c.fillStyle = '#cfe0a6'; c.fill(); c.stroke(); P(c, [-12,0,-13,-44,-9,-52,9,-52,13,-44,12,0], '#9a9690'); R(c, -11,-40,22,4,'#6f6b66'); P(c, [-3,-36,3,-36,4,-22,-4,-22], '#8a8680'); },
+  opera(c){ R(c, -44,-6,88,6,'#d9d2c0'); for (const [x, s] of [[-26, 1], [-4, 1.25], [20, 1]]){ c.beginPath(); c.moveTo(x - 14 * s, -6); c.quadraticCurveTo(x - 6 * s, -40 * s, x + 16 * s, -34 * s); c.quadraticCurveTo(x + 8 * s, -18 * s, x + 12 * s, -6); c.closePath(); c.fillStyle = '#fff'; c.fill(); c.stroke(); } },
+  angkor(c){ R(c, -46,-10,92,10,'#b9a58a'); for (const [x, hh] of [[-30, 30], [0, 46], [30, 30]]){ c.beginPath(); c.moveTo(x - 10, -10); c.quadraticCurveTo(x - 12, -10 - hh * .6, x, -10 - hh); c.quadraticCurveTo(x + 12, -10 - hh * .6, x + 10, -10); c.closePath(); c.fillStyle = '#a8926f'; c.fill(); c.stroke(); } },
+  rio(c){ P(c, [-44,0,-12,-38,10,-38,44,0], '#5f9a5c'); R(c, -3,-64,6,26,'#f1efe8'); R(c, -17,-58,34,5,'#f1efe8'); c.beginPath(); c.arc(0,-68,4,0,7); c.fillStyle = '#f1efe8'; c.fill(); c.stroke(); },
+  colosseum(c){ P(c, [-44,0,-44,-34,2,-34,2,-22,44,-22,44,0], '#d9c7a4'); c.fillStyle = '#7a6a55'; for (let x = -38; x < 40; x += 13){ c.beginPath(); c.arc(x + 4, -8, 4, Math.PI, 0); c.lineTo(x + 8, 0); c.lineTo(x, 0); c.fill(); if (x < 0){ c.beginPath(); c.arc(x + 4, -24, 3.5, Math.PI, 0); c.lineTo(x + 7.5, -18); c.lineTo(x + .5, -18); c.fill(); } } },
+  canyon(c){ P(c, [-54,0,-50,-30,-30,-30,-26,-18,-12,-18,-8,0], '#c9683f'); P(c, [8,0,12,-24,22,-24,26,-40,44,-40,48,-12,56,-12,58,0], '#d9814f'); c.beginPath(); c.moveTo(-50,-14); c.lineTo(-10,-10); c.moveTo(12,-12); c.lineTo(56,-6); c.moveTo(24,-28); c.lineTo(46,-26); c.stroke(); },
+  cape(c){ P(c, [-56,0,-40,-34,-34,-38,30,-38,38,-30,56,0], '#8f8a7c'); c.beginPath(); c.ellipse(-2,-42,36,6,0,0,7); c.fillStyle = '#fff'; c.fill(); c.stroke(); },
+  iceland(c){ c.save(); c.lineWidth = 5; c.lineCap = 'round'; [['#7fe0a8', -58], ['#9fe8c8', -68], ['#b9a8e8', -77]].forEach(([col, y], i) => { c.strokeStyle = col; c.beginPath(); c.moveTo(-44, y + 8); c.quadraticCurveTo(-10 + i * 8, y - 14, 44, y + 2); c.stroke(); }); c.restore(); P(c, [-46,0,-16,-34,2,-18,20,-30,46,0], '#dfe9ee'); },
+};
+function shade(hex, k){ const n = parseInt(hex.slice(1), 16), f = v => Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); return `rgb(${f(n >> 16)},${f(n >> 8 & 255)},${f(n & 255)})`; }
+function grad(c, x, y, r, col){ const g = c.createRadialGradient(x - r * .35, y - r * .4, r * .1, x, y, r * 1.15); g.addColorStop(0, shade(col, .3)); g.addColorStop(.6, col); g.addColorStop(1, shade(col, -.24)); return g; }
+const IC = {
+  mt(c, k = '#7f93b0'){ P(c, [-46,0,-8,-50,6,-44,18,-56,48,0], k); P(c, [-17,-38,-8,-50,6,-44,18,-56,26,-44,16,-40,8,-46,-2,-38,-9,-42], '#fff'); },
+  ice(c, k = '#dfeef5'){ P(c, [-48,0,-36,-26,-18,-20,-6,-42,10,-30,24,-46,40,-18,50,0], k); c.beginPath(); c.moveTo(-6,-42); c.lineTo(0,-14); c.moveTo(24,-46); c.lineTo(20,-16); c.stroke(); },
+  volcano(c, k = '#6f6258'){ P(c, [-48,0,-12,-42,12,-42,48,0], k); P(c, [-12,-42,-4,-34,4,-38,12,-42], '#e8552e'); c.save(); c.strokeStyle = 'rgba(120,120,130,.7)'; c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(0,-46); c.quadraticCurveTo(-10,-60,4,-70); c.stroke(); c.restore(); },
+  torii(c, k = '#d4472f'){ R(c, -22,-44,6,44,k); R(c, 16,-44,6,44,k); R(c, -34,-50,68,7,k); R(c, -28,-36,56,5,k); },
+  castle(c, k = '#e9e4d8'){ R(c, -34,-26,68,26,k); R(c, -44,-40,16,40,k); R(c, 28,-40,16,40,k); P(c, [-46,-40,-36,-56,-26,-40], '#7a4a4a'); P(c, [26,-40,36,-56,46,-40], '#7a4a4a'); R(c, -8,-46,16,20,k); P(c, [-11,-46,0,-64,11,-46], '#7a4a4a'); R(c, -5,-12,10,12,'#5b4a3a'); },
+  pagoda(c, k = '#b9483a'){ for (let i = 0; i < 3; i++){ const w = 44 - i * 9, y = -i * 17; R(c, -w / 2 + 5, y - 14, w - 10, 14, '#efe6d2'); P(c, [-w / 2 - 6, y - 12, -w / 2 + 4, y - 20, w / 2 - 4, y - 20, w / 2 + 6, y - 12], k); } },
+  sky(c, k = '#8fa3bd'){ [[-40, 26], [-26, 44], [-10, 34], [6, 60], [22, 40], [36, 24]].forEach(([x, hh], i) => R(c, x, -hh, 13, hh, i % 2 ? k : shade(k, .25))); },
+  statue(c, k = '#cfc8b8'){ R(c, -14,-14,28,14,'#a9a294'); P(c, [-9,-14,-7,-40,7,-40,9,-14], k); c.beginPath(); c.arc(0,-46,7,0,7); c.fillStyle = k; c.fill(); c.stroke(); },
+  tower(c, k = '#b9c4d2'){ P(c, [-8,0,-5,-58,0,-74,5,-58,8,0], k); R(c, -12,-6,24,6,shade(k, -.2)); },
+  karst(c, k = '#6f9a6a'){ [[-34, 30], [-12, 44], [12, 34], [34, 24]].forEach(([x, hh]) => { c.beginPath(); c.moveTo(x - 12, 0); c.quadraticCurveTo(x - 10, -hh, x, -hh); c.quadraticCurveTo(x + 10, -hh, x + 12, 0); c.closePath(); c.fillStyle = k; c.fill(); c.stroke(); }); },
+  isle(c, k = '#f1e2b0'){ c.beginPath(); c.ellipse(0,-2,44,10,0,0,7); c.fillStyle = k; c.fill(); c.stroke(); c.lineCap = 'round'; c.lineWidth = 4; c.strokeStyle = '#8a6a45'; c.beginPath(); c.moveTo(-4,-6); c.quadraticCurveTo(2,-28,-2,-44); c.stroke(); c.strokeStyle = '#3f8748'; for (const a of [-2.7, -2, -1.2, -.4, .3]){ c.beginPath(); c.moveTo(-2,-44); c.quadraticCurveTo(-2 + Math.cos(a) * 14, -52 + Math.sin(a) * 12, -2 + Math.cos(a) * 24, -40 + Math.sin(a) * 12); c.stroke(); } },
+  dome(c, k = '#3f8fb0'){ R(c, -30,-24,60,24,'#efe6d2'); c.beginPath(); c.arc(0,-24,20,Math.PI,0); c.closePath(); c.fillStyle = k; c.fill(); c.stroke(); R(c, -40,-44,6,44,'#efe6d2'); R(c, 34,-44,6,44,'#efe6d2'); },
+  onion(c, k = '#d65a70'){ R(c, -30,-22,60,22,'#efe6d2'); [[-20, '#3d8f6a', 26], [0, k, 40], [20, '#e0a030', 26]].forEach(([x, col, hh]) => { R(c, x - 5, -hh, 10, hh - 22, '#efe6d2'); c.beginPath(); c.moveTo(x - 8, -hh); c.quadraticCurveTo(x - 13, -hh - 12, x, -hh - 22); c.quadraticCurveTo(x + 13, -hh - 12, x + 8, -hh); c.closePath(); c.fillStyle = col; c.fill(); c.stroke(); }); },
+  tent(c, k = '#f4f1ea'){ c.beginPath(); c.moveTo(-34,0); c.lineTo(-34,-16); c.quadraticCurveTo(0,-44,34,-16); c.lineTo(34,0); c.closePath(); c.fillStyle = k; c.fill(); c.stroke(); R(c, -6,-16,12,16,'#c0563a'); c.beginPath(); c.moveTo(-34,-16); c.lineTo(34,-16); c.stroke(); },
+  lake(c, k = '#6dabc9'){ P(c, [-52,-8,-30,-36,-12,-16,6,-40,30,-14,52,-8], '#7d9a78'); c.beginPath(); c.ellipse(0,-2,50,10,0,0,7); c.fillStyle = k; c.fill(); c.stroke(); },
+  rock(c, k = '#c9683f'){ c.beginPath(); c.moveTo(-50,0); c.quadraticCurveTo(-46,-34,-20,-36); c.lineTo(24,-36); c.quadraticCurveTo(48,-32,50,0); c.closePath(); c.fillStyle = k; c.fill(); c.stroke(); },
+  balloon(c, k = '#e8734a'){ P(c, [-50,0,-30,-22,-16,-8,0,-26,18,-8,34,-20,50,0], '#d9c7a4'); c.beginPath(); c.arc(8,-56,15,0,7); c.fillStyle = k; c.fill(); c.stroke(); R(c, 4,-36,8,6,'#8a6a45'); },
+  arch(c, k = '#d9c7a4'){ P(c, [-34,0,-34,-48,34,-48,34,0,14,0,14,-22,-14,-22,-14,0], k); c.beginPath(); c.arc(0,-22,14,Math.PI,0); c.stroke(); },
+  church(c, k = '#b9a58a'){ R(c, -30,-24,60,24,k); [-22, -8, 8, 22].forEach((x, i) => { const t = i % 3 ? 74 : 60; P(c, [x - 6, -24, x - 4, -t + 10, x, -t, x + 4, -t + 10, x + 6, -24], k); }); },
+  columns(c, k = '#efe9da'){ R(c, -40,-6,80,6,k); for (let x = -34; x <= 28; x += 12) R(c, x, -34, 6, 28, k); P(c, [-42,-34,0,-50,42,-34], k); },
+  falls(c, k = '#8f8a7c'){ R(c, -46,-40,92,12,k); c.save(); c.fillStyle = '#d8eef5'; c.fillRect(-36,-28,72,26); c.strokeStyle = 'rgba(109,171,201,.9)'; c.lineWidth = 2; for (let x = -30; x <= 30; x += 10){ c.beginPath(); c.moveTo(x,-28); c.lineTo(x,-4); c.stroke(); } c.restore(); c.beginPath(); c.ellipse(0,-2,44,7,0,0,7); c.fillStyle = '#fff'; c.fill(); c.stroke(); },
+  tree(c, k = '#8a6a45'){ P(c, [-9,0,-7,-40,7,-40,9,0], k); for (const [x, y] of [[-18, -48], [-6, -56], [8, -56], [20, -48]]){ c.beginPath(); c.moveTo(0,-40); c.lineTo(x, y); c.stroke(); c.beginPath(); c.arc(x, y - 3, 7, 0, 7); c.fillStyle = '#5f9a5c'; c.fill(); c.stroke(); } },
+  dunes(c, k = '#e0a35a'){ c.beginPath(); c.moveTo(-54,0); c.quadraticCurveTo(-30,-40,-6,-12); c.quadraticCurveTo(16,-46,54,0); c.closePath(); c.fillStyle = k; c.fill(); c.stroke(); },
+  geyser(c, k = '#e6dccb'){ c.beginPath(); c.ellipse(0,-2,40,9,0,0,7); c.fillStyle = k; c.fill(); c.stroke(); c.strokeStyle = '#fff'; c.lineWidth = 8; c.lineCap = 'round'; c.beginPath(); c.moveTo(0,-4); c.lineTo(0,-50); c.stroke(); c.lineWidth = 5; c.beginPath(); c.moveTo(0,-50); c.quadraticCurveTo(-14,-62,-18,-46); c.moveTo(0,-50); c.quadraticCurveTo(14,-62,18,-46); c.stroke(); },
+  bridge(c, k = '#d4472f'){ R(c, -52,-14,104,5,k); R(c, -26,-52,6,52,k); R(c, 20,-52,6,52,k); c.beginPath(); c.moveTo(-52,-14); c.quadraticCurveTo(-36,-20,-23,-52); c.quadraticCurveTo(0,-8,23,-52); c.quadraticCurveTo(36,-20,52,-14); c.strokeStyle = k; c.lineWidth = 2.5; c.stroke(); },
+  sign(c, k = '#7d9a5c'){ P(c, [-54,0,-30,-40,10,-44,54,0], k); c.font = '700 13px sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.lineWidth = 3; c.strokeText('★ ★ ★', 0, -20); c.fillText('★ ★ ★', 0, -20); },
+  step(c, k = '#b9a98c'){ for (let i = 0; i < 4; i++) R(c, -40 + i * 9, -(i + 1) * 11, 80 - i * 18, 11, k); R(c, -7,-54,14,10,k); },
+  reef(c, k = '#e8734a'){ c.beginPath(); c.ellipse(0,-2,48,10,0,0,7); c.fillStyle = '#7fd3d0'; c.fill(); c.stroke(); c.lineWidth = 4; c.lineCap = 'round'; [[-22, k], [-4, '#f0b429'], [14, '#d65a70'], [28, k]].forEach(([x, col]) => { c.strokeStyle = col; c.beginPath(); c.moveTo(x,-2); c.lineTo(x - 5,-20); c.moveTo(x,-8); c.lineTo(x + 6,-22); c.moveTo(x,-2); c.lineTo(x,-26); c.stroke(); }); },
+  secret(c, k = '#f0b429'){ c.fillStyle = k; c.beginPath(); for (let i = 0; i < 10; i++){ const r = i % 2 ? 7 : 17, a = i * Math.PI / 5 - Math.PI / 2; c.lineTo(Math.cos(a) * r, -22 + Math.sin(a) * r); } c.closePath(); c.fill(); c.stroke(); }
+};
+function critter(c, x, y, s, sp){
+  const hy = -(sp.neck || 0) * s, out = shade(sp.body, -.62), face = sp.face || shade(sp.body, .35), dark = '#1f2233', lw = Math.max(1.1, s * .045), limb = sp.limb || sp.body;
+  c.save(); c.translate(x, y - s * .96); c.lineJoin = c.lineCap = 'round'; c.lineWidth = lw; c.strokeStyle = out;
+  const ell = (ex, ey, rx, ry, col, rot, st) => { c.beginPath(); c.ellipse(ex * s, ey * s, rx * s, ry * s, rot || 0, 0, 7); c.fillStyle = col; c.fill(); if (st !== false) c.stroke(); };
+  const line = pts => { c.beginPath(); for (let i = 0; i < pts.length; i += 4){ c.moveTo(pts[i] * s, pts[i + 1] * s); c.lineTo(pts[i + 2] * s, pts[i + 3] * s); } c.stroke(); };
+  ell(0, .96, .46, .08, 'rgba(31,34,51,.22)', 0, false);
+  if (sp.tail === 'bushy'){ c.beginPath(); c.moveTo(s * .2, s * .86); c.bezierCurveTo(s * 1.02, s * .96, s * 1.02, -s * .12, s * .5, s * .0); c.bezierCurveTo(s * .74, s * .3, s * .62, s * .6, s * .2, s * .6); c.closePath(); c.fillStyle = grad(c, s * .62, s * .4, s * .45, sp.body); c.fill(); c.stroke(); }
+  if (sp.tail === 'brush'){ c.beginPath(); c.moveTo(s * .24, s * .82); c.quadraticCurveTo(s * .9, s * .88, s * .8, s * .32); c.quadraticCurveTo(s * .6, s * .62, s * .24, s * .62); c.closePath(); c.fillStyle = sp.body; c.fill(); c.stroke(); ell(.78, .42, .06, .1, face, .2, false); }
+  if (sp.tail === 'thin'){ c.beginPath(); c.moveTo(s * .28, s * .84); c.quadraticCurveTo(s * .84, s * .82, s * .64, s * .3); c.lineWidth = s * .11; c.stroke(); c.lineWidth = s * .07; c.strokeStyle = sp.body; c.stroke(); c.lineWidth = lw; c.strokeStyle = out; }
+  if (sp.hump) ell(.2, .34, .22, .2, sp.body, .3);
+  if (sp.pat === 'shell') ell(0, .6, .48, .41, sp.shell);
+  for (const d of [-1, 1]) ell(d * .17, .92, .13, .07, limb);
+  ell(0, .62, .36, .33, grad(c, 0, s * .62, s * .36, sp.body));
+  if (hy){ c.fillStyle = sp.body; c.fillRect(-s * .15, hy + s * .2, s * .3, -hy + s * .22); line([-.15, hy / s + .3, -.15, .36, .15, hy / s + .3, .15, .36]); }
+  if (sp.belly) ell(0, .68, .21, .23, sp.belly, 0, false);
+  if (sp.pat === 'shell'){ c.save(); c.globalAlpha = .45; line([0, .46, 0, .9, -.2, .6, .2, .6, -.19, .76, .19, .76]); c.restore(); }
+  if (sp.pat === 'stripes'){ c.save(); c.strokeStyle = '#2e2118'; c.lineWidth = s * .04; for (const d of [-1, 1]) for (let i = 0; i < 3; i++) line([d * .35, .5 + i * .12, d * .2, .55 + i * .12]); c.restore(); }
+  for (const d of [-1, 1]) ell(d * .31, .6, .09, .17, limb, d * .35);
+  if (sp.scarf){ ell(0, .34, .28, .09, sp.scarf); c.beginPath(); c.moveTo(s * .14, s * .38); c.lineTo(s * .3, s * .58); c.lineTo(s * .12, s * .52); c.closePath(); c.fillStyle = sp.scarf; c.fill(); c.stroke(); }
+  c.translate(0, hy);
+  const es = sp.earS || 1, ec = sp.earC || sp.body, ein = sp.earIn;
+  for (const d of [-1, 1]){
+    if (sp.ear === 'tri'){
+      const tri = (k, col, st) => { c.beginPath(); c.moveTo(d * s * (.42 - .06 * k), -s * (.2 + .04 * k)); c.lineTo(d * s * (.46 - .04 * k), -s * (.2 + .52 * es * (1 - .28 * k))); c.lineTo(d * s * (.1 + .08 * k), -s * (.4 + .0 * k)); c.closePath(); c.fillStyle = col; c.fill(); if (st) c.stroke(); };
+      tri(0, ec, 1); if (ein) tri(1, ein, 0);
+    }
+    else if (sp.ear === 'round'){ ell(d * .36, -.36, .16 * es, .16 * es, ec); if (ein) ell(d * .36, -.36, .09 * es, .09 * es, ein, 0, false); }
+    else if (sp.ear === 'big'){ ell(d * .52, -.14, .28 * es, .31 * es, ec); if (ein) ell(d * .53, -.13, .18 * es, .21 * es, ein, 0, false); }
+    else if (sp.ear === 'long'){ ell(d * .2, -.68, .11, .32 * es, ec, d * .15); if (ein) ell(d * .2, -.66, .05, .24 * es, ein, d * .15, false); }
+    else if (sp.ear === 'flop') ell(d * .46, -.02, .13, .27, ec, -d * .3);
+    if (sp.horns){ c.beginPath(); c.moveTo(d * s * .28, -s * .3); c.quadraticCurveTo(d * s * .9, -s * .32, d * s * .72, -s * .86); c.quadraticCurveTo(d * s * .62, -s * .5, d * s * .2, -s * .42); c.closePath(); c.fillStyle = '#e6dcc4'; c.fill(); c.stroke(); }
+  }
+  ell(0, 0, .46, .44, grad(c, 0, 0, s * .46, sp.body));
+  if (sp.fluff) for (const k of [-1.5, -.5, .5, 1.5]) ell(k * .16, -.42 + Math.abs(k) * .03, .13, .13, shade(sp.body, .45));
+  if (sp.faceBig) ell(0, .05, .33, .31, face, 0, false);
+  else if (sp.nz === 'long') ell(0, .22, .2, .25, face);
+  else if (sp.face) ell(0, .15, .29, .23, face, 0, false);
+  if (sp.pat === 'panda') for (const d of [-1, 1]) ell(d * .18, -.03, .11, .13, '#2b2b33', d * .4, false);
+  if (sp.pat === 'mask') for (const d of [-1, 1]) ell(d * .17, -.05, .1, .08, shade(sp.body, -.6), 0, false);
+  if (sp.pat === 'stripes'){ c.save(); c.strokeStyle = '#2e2118'; c.lineWidth = s * .04; line([-.1, -.4, -.07, -.27, 0, -.42, 0, -.28, .1, -.4, .07, -.27]); for (const d of [-1, 1]) line([d * .44, -.02, d * .31, .0, d * .42, .13, d * .31, .11]); c.restore(); }
+  for (const d of [-1, 1]){
+    if (sp.iris){ ell(d * .17, -.05, .075, .075, sp.iris); ell(d * .17, -.05, .035, .045, dark, 0, false); }
+    else ell(d * .17, -.05, .055, .062, sp.pat === 'panda' ? '#000' : dark, 0, false);
+    ell(d * .17 - .02, -.075, .02, .02, '#fff', 0, false);
+  }
+  c.save(); c.strokeStyle = dark; c.lineWidth = Math.max(1, s * .03);
+  if (sp.nz === 'tri'){ c.beginPath(); c.moveTo(-s * .07, s * .08); c.lineTo(s * .07, s * .08); c.lineTo(0, s * .15); c.closePath(); c.fillStyle = dark; c.fill(); c.beginPath(); c.moveTo(0, s * .15); c.lineTo(0, s * .2); c.quadraticCurveTo(-s * .05, s * .26, -s * .1, s * .22); c.moveTo(0, s * .2); c.quadraticCurveTo(s * .05, s * .26, s * .1, s * .22); c.stroke(); }
+  else if (sp.nz === 'big'){ const n = sp.nose || .09; ell(0, .1, n, n * (n > .09 ? 1.25 : .75), dark, 0, false); ell(-n * .3, .1 - n * .3, n * .25, n * .15, 'rgba(255,255,255,.5)', 0, false); if (n <= .09) line([0, .1 + n * .75, 0, .24]); }
+  else if (sp.nz === 'long'){ for (const d of [-1, 1]) ell(d * .06, .28, .02, .03, dark, 0, false); line([0, .34, 0, .42, -.07, .43, .07, .43]); }
+  else if (sp.nz === 'beak'){ c.beginPath(); const bw = .1 * (sp.beakW || 1), bl = .18 * (sp.beakL || 1); c.moveTo(-s * bw, s * .06); c.lineTo(s * bw, s * .06); c.lineTo(0, s * (.06 + bl)); c.closePath(); c.fillStyle = sp.beak; c.fill(); c.strokeStyle = out; c.stroke(); }
+  else if (sp.nz === 'trunk'){
+    for (const d of [-1, 1]){ c.beginPath(); c.moveTo(d * s * .13, s * .2); c.quadraticCurveTo(d * s * .3, s * .42, d * s * .22, s * .56); c.quadraticCurveTo(d * s * .2, s * .38, d * s * .08, s * .28); c.closePath(); c.fillStyle = '#fbf6e8'; c.fill(); c.strokeStyle = out; c.lineWidth = lw; c.stroke(); }
+    c.beginPath(); c.moveTo(0, s * .08); c.bezierCurveTo(s * .02, s * .5, -s * .08, s * .8, s * .16, s * .84); c.strokeStyle = out; c.lineWidth = s * .21; c.stroke(); c.strokeStyle = sp.body; c.lineWidth = s * .21 - lw * 2; c.stroke();
+    c.strokeStyle = out; c.lineWidth = Math.max(1, s * .02); c.globalAlpha = .4; line([-.06, .4, .06, .4, -.07, .54, .05, .55, -.06, .68, .04, .7]);
+  }
+  else { for (const d of [-1, 1]) ell(d * .03, .12, .015, .022, dark, 0, false); c.beginPath(); c.moveTo(-s * .08, s * .22); c.quadraticCurveTo(0, s * .27, s * .08, s * .22); c.stroke(); }
+  if (sp.whisk){ c.globalAlpha = .55; c.lineWidth = Math.max(.8, s * .018); for (const d of [-1, 1]) for (let i = -1; i <= 1; i++) line([d * .2, .17 + i * .03, d * .52, .14 + i * .08]); }
+  c.restore(); c.restore();
+}
+function label(c, text, x, y, size){
+  c.font = `700 ${size}px "Zen Maru Gothic",sans-serif`; c.textAlign = 'center'; c.lineWidth = 4; c.strokeStyle = '#fbf8ee'; c.lineJoin = 'round';
+  c.strokeText(text, x, y); c.fillStyle = INK; c.fillText(text, x, y);
+}
+function bubble(c, text, x, y){
+  c.font = '700 13px "Zen Maru Gothic",sans-serif'; const w = c.measureText(text).width + 20;
+  c.beginPath(); c.roundRect ? c.roundRect(x - w / 2, y - 24, w, 24, 12) : c.rect(x - w / 2, y - 24, w, 24);
+  c.fillStyle = '#fff'; c.fill(); c.lineWidth = 2; c.strokeStyle = INK; c.stroke();
+  c.fillStyle = INK; c.textAlign = 'center'; c.fillText(text, x, y - 7);
+}
+const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function draw(ts){
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (S.z < zMin()) S.z = zMin();
+  const z = S.z, k = sk(), sw = vw / z, sh = vh / z;
+  camx = Math.max(0, Math.min(W - sw, S.x - sw / 2)); camy = Math.max(0, Math.min(H - sh, S.y - sh / 2));
+  ctx.fillStyle = '#4f8fb8'; ctx.fillRect(0, 0, vw, vh);
+  if (landCv) ctx.drawImage(landCv, camx, camy, sw, sh, 0, 0, vw, vh);
+  if (jpCv && z > 1.25) ctx.drawImage(jpCv, (JP.x - camx) * z, (JP.y - camy) * z, JP.w * z, JP.h * z);
+  const bob = n => still ? 0 : Math.sin(ts / 420 + n) * 2.5;
+  const items = [];
+  PLACES.forEach((p, i) => {
+    const x = (p.x - camx) * z, y = (p.y - camy) * z;
+    if (x < -150 || x > vw + 150 || y < -150 || y > vh + 150) return;
+    if (p.hidden && !isOpen(p)) return;
+    if (p.minZ && z < p.minZ){ ctx.beginPath(); ctx.arc(x, y, 3.2, 0, 7); ctx.fillStyle = isOpen(p) ? '#f0b429' : '#fff'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = INK; ctx.stroke(); return; }
+    items.push({ y, f:() => {
+      ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
+      if (!isOpen(p)){
+        ctx.fillStyle = 'rgba(255,255,255,.9)';
+        for (const [cx, cy, r] of [[-26, -16, 18], [-6, -30, 24], [20, -20, 20], [0, -10, 22]]){ ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill(); }
+        label(ctx, '？', 0, -14, 22);
+        if (Math.hypot(p.x - S.x, p.y - S.y) * z < 200) label(ctx, `あと${p.need - userTurns()}回話すと行ける`, 0, 22, 12);
+        ctx.restore(); return;
+      }
+      const calling = S.near === p && !S.dlg;
+      if (p.run && calling){ p.ox += (Math.max(-110, Math.min(110, (S.x - p.x) * z / k - 46)) - p.ox) * .07; p.oy += (Math.max(-90, Math.min(90, (S.y - p.y) * z / k)) - p.oy) * .07; }
+      else { p.ox += (66 - p.ox) * .08; p.oy += (16 - p.oy) * .08; }
+      ctx.beginPath(); ctx.ellipse(0, 2, 58, 9, 0, 0, 7); ctx.fillStyle = 'rgba(31,34,51,.16)'; ctx.fill();
+      ctx.save(); ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(39,48,74,.75)'; ctx.lineJoin = 'round'; LM[p.id] ? LM[p.id](ctx) : IC[p.icon](ctx, p.col); ctx.restore();
+      label(ctx, p.name, 0, 18, 13);
+      const hop = calling && !still ? -Math.abs(Math.sin(ts / 160)) * 7 : 0;
+      critter(ctx, p.ox, p.oy + bob(i) + hop, 36, p.npc.sp);
+      if (calling && S.hail) bubble(ctx, S.hail, p.ox, p.oy - 78 + (p.npc.sp.neck || 0) * -36 + bob(i));
+      ctx.restore();
+    } });
+  });
+  items.push({ y:(S.y - camy) * z, f:() => {
+    const av = AVATARS.find(a => a.id === S.avatar) || AVATARS[0], pos = (S.x | 0) + ':' + (S.y | 0);
+    if (S.onLandAt !== pos){ ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); S.onLand = !!landPath && ctx.isPointInPath(landPath, S.x, S.y, 'evenodd'); ctx.restore(); S.onLandAt = pos; }
+    ctx.save(); ctx.translate((S.x - camx) * z, (S.y - camy) * z); ctx.scale(k, k);
+    const by = S.onLand ? 0 : bob(9), lift = S.onLand ? 0 : 6;
+    if (!S.onLand){ ctx.beginPath(); ctx.moveTo(-26, -8 + by); ctx.quadraticCurveTo(0, 14 + by, 26, -8 + by); ctx.closePath(); ctx.fillStyle = '#a9794a'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke(); }
+    critter(ctx, 0, -lift + by, 38, av.sp);
+    const fx = 4, fy = -82 - lift + by + bob(3) * .4;   // 頭の上のふみ
+    ctx.lineWidth = 1.5; ctx.strokeStyle = INK;
+    ctx.beginPath(); ctx.ellipse(fx, fy + 4, 8, 7, 0, 0, 7); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(fx, fy - 2, 6, 0, 7); ctx.fillStyle = INK; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(fx - 2, fy - 1); ctx.lineTo(fx + 2, fy - 1); ctx.lineTo(fx, fy + 4); ctx.closePath(); ctx.fillStyle = '#d65a70'; ctx.fill();
+    if (S.relay && ts < S.relay.until) bubble(ctx, S.relay.text, fx, fy - 14);
+    ctx.restore();
+  } });
+  items.sort((a, b) => a.y - b.y).forEach(i => i.f());
+}
+const keys = {};
+let last = 0;
+function frame(ts){
+  const dt = Math.min(.05, (ts - last) / 1000 || 0); last = ts;
+  if (!S.dlg && !S.sheet && S.avatar){
+    let dx = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.a ? 1 : 0), dy = (keys.ArrowDown || keys.s ? 1 : 0) - (keys.ArrowUp || keys.w ? 1 : 0);
+    if (dx || dy) S.tx = S.ty = null;
+    else if (S.tx != null){ dx = S.tx - S.x; dy = S.ty - S.y; if (Math.hypot(dx, dy) < 5){ S.tx = S.ty = null; dx = dy = 0; } }
+    const len = Math.hypot(dx, dy);
+    if (len){ const sp = 320 * dt / Math.pow(S.z, .75); S.x = Math.max(24, Math.min(W - 24, S.x + dx / len * sp)); S.y = Math.max(44, Math.min(H - 20, S.y + dy / len * sp)); }
+    const z = S.z, k = sk();
+    let best = null, bd = 1e9, aura = false, jpNear = false;
+    for (const p of PLACES){
+      const wd = Math.hypot(p.x - S.x, p.y - S.y);
+      if (!isOpen(p)){
+        if (p.hidden){ if (wd < 130){ (S.meta.found = S.meta.found || []).push(p.id); save('me'); toast(`かくれ場所を見つけました：${p.name}`); S.hudKey = ''; } else if (wd < 420) aura = true; }
+        continue;
+      }
+      if (p.minZ && z < p.minZ){ if (wd < 60) jpNear = true; continue; }
+      const d = Math.hypot((p.x - S.x) * z + 30 * k, (p.y - S.y) * z + 20 * k);
+      if (d < bd){ bd = d; best = p; }
+    }
+    const near = bd < 84 * k ? best : null;
+    const key = (near ? near.id : '') + '|' + best.id + '|' + Math.round(Math.atan2(best.y - S.y, best.x - S.x) * 4 / Math.PI) + '|' + aura + jpNear;
+    if (key !== S.hudKey){ if (near !== S.near) S.hail = near ? hail(near) : ''; S.hudKey = key; S.near = near; S.best = best; S.aura = aura; S.jpNear = jpNear; drawHud(); }
+    /* しばらく誰とも会わないと、ふみが住人からの伝言を届ける */
+    S.idle = near ? 0 : (S.idle || 0) + dt;
+    if (S.idle > 40){
+      S.idle = 0;
+      const open = PLACES.filter(p => isOpen(p)), cnt = p => S.journal.filter(e => e.p === p.id && e.r === 'u').length, min = Math.min(...open.map(cnt)), p = pick(open.filter(q => cnt(q) === min));
+      S.relay = { text:pick([`ふみ「${p.name}で${p.npc.name}が呼んでるよ」`, `ふみ「${p.npc.name}から伝言。聞きたいことがあるって」`, `ふみ「${p.npc.name}が、${p.theme}の話を聞きたいって」`]), until:ts + 8000 };
+    }
+  }
+  draw(ts);
+  requestAnimationFrame(frame);
+}
+/* 住人の呼びかけ。初対面か、何度目か、時間帯、かくれ場所かで変わる */
+function hail(p){
+  const n = S.journal.filter(e => e.p === p.id && e.r === 'u').length, call = (S.profile || {}).callName, hr = new Date().getHours();
+  if (p.hidden && !n) return pick(['……見つかっちゃった', 'よくここが分かったね', 'しーっ。ここは内緒の場所', 'お客さんなんて、はじめてだ']);
+  if (p.run) return pick(n ? ['まってまって〜！', 'いたいた！ さがしたよ', '走ってきちゃった！'] : ['まって〜！ 旅の人！', 'ちょっと、そこの人〜！', 'いま行くから動かないで！']);
+  const pool = n ? ['また来てくれたんだ！', '待ってたよ', 'このあいだの続き、聞かせて', 'おかえり！', '今日はどんな話？', 'あ、ちょうどよかった'] : ['はじめまして！', 'やあ、旅の人', 'ねえねえ、ちょっといい？', 'いいところに来たね', '聞きたいことがあるんだ', 'こっちこっち！', 'そこの旅の人〜', 'ひとつ聞いてもいい？'];
+  if (call && n) pool.push(`あ、${call}だ！`, `${call}、こっち！`);
+  pool.push(hr < 5 ? '夜ふかしだね' : hr < 11 ? 'おはよう！' : hr < 17 ? 'こんにちは！' : hr < 20 ? '夕方だね、おつかれさま' : 'こんばんは');
+  if (!n) pool.push(`${p.theme.split('・')[0]}の話、しない？`);
+  return pick(pool);
+}
+function drawHud(){
+  const tb = $('#talkBtn'), show = S.near && !S.dlg && !S.sheet;
+  tb.hidden = !show; if (show) tb.textContent = `${S.near.npc.name}と話す`;
+  $('#goBtn').hidden = $('#fumiBtn').hidden = !!S.dlg; document.querySelector('.zoom').hidden = !!S.dlg;
+  const fb = $('#fumiBtn');
+  fb.replaceChildren(svg(), 'ふみ'); if (S.news) fb.append(h('span', { class:'dot', 'aria-label':'お知らせあり' }, '本'));
+  const w = $('#where'), b = S.best;
+  if (S.near) w.textContent = `${S.near.name}（${S.near.country}）に着きました`;
+  else if (S.aura) w.textContent = '……近くに、何かの気配がします';
+  else if (S.jpNear) w.textContent = '地図を拡大（＋）すると、近くの名所が現れます';
+  else if (b){ const a = Math.round(Math.atan2(b.y - S.y, b.x - S.x) * 4 / Math.PI); w.textContent = `いちばん近い名所: ${b.name} ${['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'][(a + 8) % 8]}`; }
+}
+window.addEventListener('keydown', e => {
+  const t = e.target.tagName;
+  if (e.key === 'Escape'){ if (S.dlg) closeDialog(); else if (S.sheet && S.avatar) closeSheet(); return; }
+  if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || S.dlg || S.sheet) return;
+  if ((e.key === 'Enter' || e.key === ' ') && S.near && t !== 'BUTTON'){ e.preventDefault(); openDialog(S.near); return; }
+  if (e.key === '+' || e.key === ';' || e.key === '=') return zoomTo(S.z * 1.4);
+  if (e.key === '-') return zoomTo(S.z / 1.4);
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(k)){ keys[k] = true; if (k.startsWith('Arrow')) e.preventDefault(); $('#hint').hidden = true; }
+});
+window.addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; keys[k] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const touches = new Map(); let pinch = null;
+function point(e){
+  if (S.dlg || S.sheet || touches.size > 1) return;
+  const r = cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top, z = S.z, k = sk(), n = S.near;
+  if (e.type === 'pointerdown' && n && Math.hypot((n.x - camx) * z + n.ox * k - sx, (n.y - camy) * z + (n.oy - 36) * k - sy) < 50 * k) return openDialog(n);
+  S.tx = camx + sx / z; S.ty = camy + sy / z; $('#hint').hidden = true;
+}
+const spread = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture && cv.setPointerCapture(e.pointerId); touches.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  if (touches.size === 2){ pinch = { d:spread(), z:S.z }; S.tx = S.ty = null; } else point(e);
+});
+cv.addEventListener('pointermove', e => {
+  if (!touches.has(e.pointerId)) return;
+  touches.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  if (touches.size === 2 && pinch) zoomTo(pinch.z * spread() / pinch.d); else if (e.buttons) point(e);
+});
+const lift = e => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; };
+cv.addEventListener('pointerup', lift); cv.addEventListener('pointercancel', lift);
+cv.addEventListener('wheel', e => { if (S.dlg || S.sheet) return; e.preventDefault(); zoomTo(S.z * Math.exp(-e.deltaY * .0016)); }, { passive:false });
+$('#zin').addEventListener('click', () => zoomTo(S.z * 1.5));
+$('#zout').addEventListener('click', () => zoomTo(S.z / 1.5));
+$('#talkBtn').addEventListener('click', () => S.near && openDialog(S.near));
+$('#goBtn').addEventListener('click', () => openSheet('go'));
+$('#fumiBtn').addEventListener('click', () => openSheet('fumi'));
+
+/* ================= 起動 ================= */
+async function boot(){
+  resize(); buildLand(); drawHud();
+  new ResizeObserver(resize).observe($('#stage'));
+  requestAnimationFrame(frame);
+  const use = n => { try { return window.claude && window.claude.use ? window.claude.use(n) : Promise.resolve(null); } catch { return Promise.resolve(null); } };
+  try { [db, user, sample] = await Promise.all([use('db'), use('user'), use('sample')]); } catch {}
+  sample = makeAI(sample);
+  try { S.uid = user ? await user.id() : null; S.isOwner = user ? !!(await user.isOwner()) : false; } catch {}
+  if (db && S.uid){
+    try{
+      const [m, j, b, oldTalk] = await Promise.all([pdoc('me').get(), pdoc('journal').get(), pdoc('book').get(), pdoc('talk').get()]);
+      if (m.exists){ const d = plain(m.data()); S.avatar = d.avatar || null; if (d.x) { S.x = d.x; S.y = d.y; } if (d.z) S.z = d.z; S.meta = d.meta || {}; S.profile = d.profile || {}; }
+      if (j.exists) S.journal = plain(j.data().entries || []);
+      else if (oldTalk.exists) S.journal = plain(oldTalk.data().messages || []).filter(x => x.content && x.kind !== 'proposal' && !x.nudge).map(x => ({ p:'fuji', r:x.role === 'user' ? 'u' : 'a', c:x.content, t:x.t || 0 }));
+      if (b.exists) S.book = plain(b.data());
+    }catch{}
+  }
+  if (!(db && S.uid)){
+    const L = k => { try { return JSON.parse(localStorage.getItem('kk-' + k) || 'null'); } catch { return null; } };
+    const d = L('me'); if (d){ S.avatar = d.avatar || null; if (d.x){ S.x = d.x; S.y = d.y; } if (d.z) S.z = d.z; S.meta = d.meta || {}; S.profile = d.profile || {}; }
+    const j = L('journal'); if (j) S.journal = j.entries || [];
+    S.book = L('book'); S.books = L('books') || []; S.purch = L('purch') || [];
+  }
+  S.ready = true;
+  if (!S.avatar) openSheet('pick');
+  if (!sample && LAI.model && navigator.gpu && !window.claude) loadLocalAI(LAI.model);
+  if (db){
+    db.collection('books').onSnapshot(s => { S.books = s.docs.map(d => ({ id:d.id, ...plain(d.data()) })); if (S.sheet && S.sheet.kind === 'fumi' && S.sheet.tab === 'shop' && !S.busy) renderSheet(); }, () => {});
+    db.collection('purchases').onSnapshot(s => { S.purch = s.docs.map(d => ({ id:d.id, items:(d.data().items || []).slice() })); }, () => {});
+  }
+}
+boot();
+</script>
+</body>
+</html>
