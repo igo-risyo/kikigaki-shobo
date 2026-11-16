@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ききがき書房</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#27304a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
@@ -505,9 +509,13 @@ function save(kind){
 const LOCAL_MODELS = [
   { id:'gemma-2-2b-jpn-it-q4f16_1-MLC', label:'日本語向け・標準（必要メモリ 約1.9GB）' },
   { id:'Qwen2.5-3B-Instruct-q4f16_1-MLC', label:'文章力重視（必要メモリ 約2.5GB）' },
-  { id:'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', label:'軽量（必要メモリ 約1.6GB）' },
+  { id:'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', label:'軽量・スマホ向け（必要メモリ 約1.6GB）' },
+  { id:'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', label:'最軽量・古めのスマホ向け（必要メモリ 約0.9GB。日本語は弱め）' },
   { id:'Qwen2.5-7B-Instruct-q4f16_1-MLC', label:'高性能パソコン向け（必要メモリ 約5.1GB）' }
 ];
+const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; aiView(); });
 const LAI = { engine:null, state:'off', progress:0, text:'', err:'', model:(() => { try { return localStorage.getItem('kk-ai-model') || ''; } catch { return ''; } })() };
 async function loadLocalAI(modelId){
   if (LAI.state === 'loading') return;
@@ -524,6 +532,7 @@ async function loadLocalAI(modelId){
     if (!sample || sample.local) sample = localAI();
     toast('ふみ「端末の中のAIの準備ができたよ」');
   }catch(e){ LAI.state = 'error'; LAI.err = String((e && e.message) || e).slice(0, 200); }
+  if (LAI.state === 'error' && IS_PHONE) LAI.err = 'この端末のメモリでは足りない可能性があります。より軽いモデルを選んでください。' + LAI.err.slice(0, 80);
   aiView(); if (S.dlg) renderDialog();
 }
 function localAI(){
@@ -990,19 +999,29 @@ function fumiShop(){
 function fumiAI(){
   const inPreview = !!window.claude, usingLocal = sample && sample.local, usingClaude = sample && !sample.local;
   const now = usingLocal ? `いまは、この端末の中のAI（${LAI.model}）で動いています。会話は外に送られません。` : usingClaude ? 'いまは Claude につながっています（このプレビュー画面の中だけの接続です）。' : 'いまはAIにつながっていません。住人は用意したせりふで話し、本は作られません。';
-  const sel = LAI.model || LOCAL_MODELS[0].id;
+  const sel = LAI.model || (IS_PHONE ? 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' : LOCAL_MODELS[0].id);
+  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  const mem = navigator.deviceMemory ? `メモリ 約${navigator.deviceMemory}GB以上` : 'メモリ 不明';
+  const app = inPreview ? null : h('div', { class:'card' },
+    h('h3', null, standalone ? 'アプリとして開いています' : 'アプリとして入れる'),
+    standalone ? h('p', { class:'pen', style:'margin:0' }, 'ホーム画面のアイコンから、いつでも開けます。') : [
+      h('p', { class:'pen', style:'margin:0' }, 'ホーム画面にアイコンができ、アドレスバーのない全画面で開けます。'),
+      installEvt ? h('div', null, h('button', { class:'btn', type:'button', onclick:async () => { const e = installEvt; installEvt = null; try { await e.prompt(); } catch {} aiView(); } }, 'ホーム画面に追加する'))
+        : h('p', { class:'pen', style:'margin:0' }, 'Android: Chromeの右上「︙」→「アプリをインストール」または「ホーム画面に追加」。')]);
   return [
     fumiLine(usingLocal ? 'ぼくも住人たちも、いまはこの端末の中だけで考えてるよ。' : '端末の中にAIを入れると、通信も料金もなしで、ぼくたちと話せるようになるよ。'),
     h('p', { class:'note' }, now),
     h('div', { class:'card' },
       h('h3', null, 'この端末の中でAIを動かす'),
-      h('p', { class:'pen', style:'margin:0' }, '初回だけAIのモデルをダウンロードします（1〜数GB。Wi-Fiをおすすめします）。二回目からはすぐ使えます。キーも料金もいりません。パソコンのChromeかEdgeで動きます。'),
+      h('p', { class:'pen', style:'margin:0' }, '初回だけAIのモデルをダウンロードします（1〜数GB。Wi-Fiをおすすめします）。二回目からはすぐ使えます。キーも料金もいりません。パソコンと、新しめのAndroidのChromeで動きます。'),
+      h('p', { class:'pen', style:'margin:0' }, `この端末: ${navigator.gpu ? 'AIを動かす機能あり' : 'AIを動かす機能なし'} ・ ${mem}` + (IS_PHONE ? ' ・ スマホでは「軽量」から試してください' : '')),
       h('label', { class:'f', htmlFor:'aimodel' }, 'モデル', h('select', { id:'aimodel', disabled:LAI.state === 'loading' }, LOCAL_MODELS.map(m => h('option', { value:m.id, selected:m.id === sel }, m.label)))),
       h('div', { class:'row' }, h('button', { class:'btn obi', type:'button', disabled:LAI.state === 'loading', onclick:() => loadLocalAI($('#aimodel').value) }, LAI.state === 'loading' ? '読み込んでいます…' : LAI.state === 'ready' ? 'このモデルに切り替える' : 'ダウンロードして使う')),
       LAI.state === 'loading' ? h('div', null, h('div', { class:'meter' }, h('i', { style:'max-width:none' }, h('b', { id:'aibar', style:'width:' + Math.round(LAI.progress * 100) + '%' }))), h('p', { class:'pen', id:'aitext', style:'margin:6px 0 0;overflow-wrap:anywhere' }, LAI.text)) : null,
       LAI.state === 'nogpu' ? h('p', { class:'note' }, 'このブラウザでは動かせません（WebGPUという機能が必要です）。パソコンのChromeかEdgeの新しい版で開いてください。') : null,
       LAI.state === 'error' ? h('p', { class:'note' }, (inPreview ? 'このプレビュー画面の中では、外からモデルを読み込めません。サイトとして公開した版で使えます。' : '読み込めませんでした。通信の状態と空きメモリを確かめて、軽いモデルで試してください。') + '（' + LAI.err + '）') : null,
-      h('p', { class:'pen', style:'margin:0' }, '小さなAIなので、文章の自然さや本のまとまりは大きなAIより落ちます。話していないことを書いてしまうこともあるので、本は読んで、違うところをふみに伝えてください。'))
+      h('p', { class:'pen', style:'margin:0' }, '小さなAIなので、文章の自然さや本のまとまりは大きなAIより落ちます。話していないことを書いてしまうこともあるので、本は読んで、違うところをふみに伝えてください。')),
+    app
   ];
 }
 function fumiMemo(){
@@ -1370,6 +1389,7 @@ $('#fumiBtn').addEventListener('click', () => openSheet('fumi'));
 
 /* ================= 起動 ================= */
 async function boot(){
+  if (IS_PHONE) $('#hint').textContent = '行きたい場所をタップすると歩きます。二本指のピンチか＋−で地図を拡大・縮小。拡大すると日本各地の名所が現れます。';
   resize(); buildLand(); drawHud();
   new ResizeObserver(resize).observe($('#stage'));
   requestAnimationFrame(frame);
@@ -1401,6 +1421,7 @@ async function boot(){
   }
 }
 boot();
+if ('serviceWorker' in navigator && !window.claude && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
 </html>
