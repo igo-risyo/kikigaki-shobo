@@ -8,6 +8,9 @@
 <meta name="theme-color" content="#27304a">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ききがき書房">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
@@ -1007,13 +1010,13 @@ function fumiAI(){
     standalone ? h('p', { class:'pen', style:'margin:0' }, 'ホーム画面のアイコンから、いつでも開けます。') : [
       h('p', { class:'pen', style:'margin:0' }, 'ホーム画面にアイコンができ、アドレスバーのない全画面で開けます。'),
       installEvt ? h('div', null, h('button', { class:'btn', type:'button', onclick:async () => { const e = installEvt; installEvt = null; try { await e.prompt(); } catch {} aiView(); } }, 'ホーム画面に追加する'))
-        : h('p', { class:'pen', style:'margin:0' }, 'Android: Chromeの右上「︙」→「アプリをインストール」または「ホーム画面に追加」。')]);
+        : h('p', { class:'pen', style:'margin:0' }, /iPhone|iPad/.test(navigator.userAgent) ? 'iPhone: Safariで開き、共有ボタン（四角から矢印が出ている印）→「ホーム画面に追加」。AIのダウンロードは、まずSafariのまま試してください。' : 'Android: Chromeの右上「︙」→「アプリをインストール」または「ホーム画面に追加」。')]);
   return [
     fumiLine(usingLocal ? 'ぼくも住人たちも、いまはこの端末の中だけで考えてるよ。' : '端末の中にAIを入れると、通信も料金もなしで、ぼくたちと話せるようになるよ。'),
     h('p', { class:'note' }, now),
     h('div', { class:'card' },
       h('h3', null, 'この端末の中でAIを動かす'),
-      h('p', { class:'pen', style:'margin:0' }, '初回だけAIのモデルをダウンロードします（1〜数GB。Wi-Fiをおすすめします）。二回目からはすぐ使えます。キーも料金もいりません。パソコンと、新しめのAndroidのChromeで動きます。'),
+      h('p', { class:'pen', style:'margin:0' }, '初回だけAIのモデルをダウンロードします（1〜数GB。Wi-Fiをおすすめします）。二回目からはすぐ使えます。キーも料金もいりません。パソコンと、新しめのAndroidのChrome、iOS 26以降のiPhoneのSafariで動きます。'),
       h('p', { class:'pen', style:'margin:0' }, `この端末: ${navigator.gpu ? 'AIを動かす機能あり' : 'AIを動かす機能なし'} ・ ${mem}` + (IS_PHONE ? ' ・ スマホでは「軽量」から試してください' : '')),
       h('label', { class:'f', htmlFor:'aimodel' }, 'モデル', h('select', { id:'aimodel', disabled:LAI.state === 'loading' }, LOCAL_MODELS.map(m => h('option', { value:m.id, selected:m.id === sel }, m.label)))),
       h('div', { class:'row' }, h('button', { class:'btn obi', type:'button', disabled:LAI.state === 'loading', onclick:() => loadLocalAI($('#aimodel').value) }, LAI.state === 'loading' ? '読み込んでいます…' : LAI.state === 'ready' ? 'このモデルに切り替える' : 'ダウンロードして使う')),
