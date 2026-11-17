@@ -130,6 +130,7 @@ dl.memo dt{color:var(--muted)}dl.memo dd{margin:0}
     <div class="hud tl" id="hint">矢印キーか、行きたい場所のタップで歩けます。＋−やホイール、ピンチで地図を拡大・縮小。拡大すると日本各地の名所が現れます。住人に近づくと声をかけてきます。</div>
     <div class="zoom"><button type="button" id="zin" aria-label="地図を拡大">＋</button><button type="button" id="zout" aria-label="地図を縮小">−</button></div>
     <button class="hudbtn hud bl" id="goBtn" type="button">行き先</button>
+    <div class="hud tl" id="aiask" hidden></div>
     <button class="btn obi hud bc" id="talkBtn" type="button" hidden></button>
     <button class="hudbtn hud br" id="fumiBtn" type="button"></button>
     <div class="dialog" id="dialog" hidden></div>
@@ -535,12 +536,12 @@ const BEST_MODEL = () => IS_PHONE ? 'gemma-2-2b-jpn-it-q4f16_1-MLC' : 'gemma-4-E
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; aiView(); });
-const LAI = { engine:null, state:'off', progress:0, text:'', err:'', model:(() => { try { return localStorage.getItem('kk-ai-model') || ''; } catch { return ''; } })() };
+const LAI = { later:(() => { try { return !!sessionStorage.getItem('kk-ai-later'); } catch { return false; } })(), engine:null, state:'off', progress:0, text:'', err:'', model:(() => { try { return localStorage.getItem('kk-ai-model') || ''; } catch { return ''; } })() };
 async function loadLocalAI(modelId){
   if (LAI.state === 'loading') return;
   if (!navigator.gpu){ LAI.state = 'nogpu'; return aiView(); }
   LAI.tried = modelId; LAI.state = 'loading'; LAI.progress = 0; LAI.text = '準備しています…'; LAI.err = ''; aiView();
-  const cb = r => { LAI.progress = r.progress || 0; LAI.text = r.text || ''; const b = $('#aibar'), t = $('#aitext'); if (b) b.style.width = Math.round(LAI.progress * 100) + '%'; if (t) t.textContent = LAI.text; };
+  const cb = r => { LAI.progress = r.progress || 0; LAI.text = r.text || ''; const b = $('#aibar'), t = $('#aitext'); if (b) b.style.width = Math.round(LAI.progress * 100) + '%'; if (t) t.textContent = LAI.text; const q = $('#aiaskp'); if (q) q.textContent = `ふみ「AIを準備中… ${Math.round(LAI.progress * 100)}%。そのまま歩いてて大丈夫だよ」`; };
   try{
     const lib = await import('./web-llm.js');
     let eng;
@@ -570,7 +571,28 @@ function localAI(){
   ai.local = true;
   return ai;
 }
-function aiView(){ if (S.sheet && S.sheet.kind === 'fumi' && S.sheet.tab === 'ai') renderSheet(); }
+function aiView(){ aiBanner(); if (S.sheet && S.sheet.kind === 'fumi' && S.sheet.tab === 'ai') renderSheet(); }
+/* はじめての人には、地図の上でふみが一度だけ「AIを準備していい？」と聞く。設定画面を開かなくても、1回押すだけで準備が進む */
+const LIGHTER = { 'gemma-4-E2B-it-q4f16_1-MLC':'gemma-2-2b-jpn-it-q4f16_1-MLC', 'Qwen3.5-4B-q4f16_1-MLC':'gemma-2-2b-jpn-it-q4f16_1-MLC', 'gemma-2-2b-jpn-it-q4f16_1-MLC':'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC':'Qwen2.5-0.5B-Instruct-q4f16_1-MLC' };
+function startAI(id){ LAI.fromBanner = true; loadLocalAI(id); }
+function aiBanner(){
+  const el = $('#aiask'); if (!el) return;
+  const site = !NATIVE && !window.claude && S.ready && S.avatar;
+  let kids = null;
+  if (site && LAI.state === 'loading') kids = [h('span', { id:'aiaskp' }, `ふみ「AIを準備中… ${Math.round(LAI.progress * 100)}%。そのまま歩いてて大丈夫だよ」`)];
+  else if (site && !sample && LAI.state === 'error' && LAI.fromBanner){
+    const lighter = LIGHTER[LAI.tried];
+    kids = [lighter ? 'ふみ「ごめん、AIを準備できなかった。もっと軽いAIで試してみる？」' : 'ふみ「ごめん、この端末ではAIの準備がむずかしいみたい」',
+      h('div', { class:'row', style:'margin-top:6px' }, lighter ? h('button', { class:'btn obi', type:'button', onclick:() => startAI(lighter) }, '軽いAIで試す') : null,
+        h('button', { class:'btn ghost', type:'button', onclick:() => { LAI.fromBanner = false; aiBanner(); } }, 'とじる'))];
+  }
+  else if (site && !sample && navigator.gpu && LAI.state === 'off' && !LAI.model && !LAI.later)
+    kids = ['ふみ「住人たちと話せるように、AIを準備していい？ 初回だけ数GBをダウンロードするよ（Wi-Fiがおすすめ）」',
+      h('div', { class:'row', style:'margin-top:6px' }, h('button', { class:'btn obi', type:'button', onclick:() => startAI(BEST_MODEL()) }, '準備する'),
+        h('button', { class:'btn ghost', type:'button', onclick:() => { LAI.later = true; try { sessionStorage.setItem('kk-ai-later', '1'); } catch {} aiBanner(); } }, 'あとで'))];
+  el.hidden = !kids;
+  if (kids){ el.replaceChildren(...kids); $('#hint').hidden = true; }
+}
 
 /* ================= 文章エンジン ================= */
 function profileText(){
@@ -968,7 +990,7 @@ function renderDialog(){
 
 /* ================= ふみ・行き先・キャラ選び ================= */
 function openSheet(kind, tab){ if (S.dlg) closeDialog(); S.sheet = { kind, tab:tab || 'book', open:null, reading:false, fumiSays:'' }; if (kind === 'fumi') { S.news = 0; drawHud(); } renderSheet(); }
-function closeSheet(){ S.sheet = null; $('#sheet').hidden = true; $('#cv').focus(); }
+function closeSheet(){ S.sheet = null; $('#sheet').hidden = true; $('#cv').focus(); aiBanner(); }
 function renderSheet(){
   const el = $('#sheet');
   if (!S.sheet){ el.hidden = true; return; }
@@ -1541,6 +1563,7 @@ async function boot(){
   S.ready = true;
   if (!S.avatar) openSheet('pick');
   if (!sample && LAI.model && navigator.gpu && !window.claude && !NATIVE) loadLocalAI(LAI.model);
+  aiBanner();
   if (db){
     db.collection('books').onSnapshot(s => { S.books = s.docs.map(d => ({ id:d.id, ...plain(d.data()) })); if (S.sheet && S.sheet.kind === 'fumi' && S.sheet.tab === 'shop' && !S.busy) renderSheet(); }, () => {});
     db.collection('purchases').onSnapshot(s => { S.purch = s.docs.map(d => ({ id:d.id, items:(d.data().items || []).slice() })); }, () => {});
