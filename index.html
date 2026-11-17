@@ -433,7 +433,7 @@ const AVATARS = [
 const BIRD = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M12 44 L3 50 L13 50Z" fill="#27304a"/><ellipse cx="32" cy="40" rx="20" ry="18" fill="#fff" stroke="#27304a" stroke-width="2.5"/><circle cx="32" cy="24" r="15" fill="#27304a"/><ellipse cx="22.5" cy="29" rx="6.5" ry="5.5" fill="#fff"/><ellipse cx="41.5" cy="29" rx="6.5" ry="5.5" fill="#fff"/><circle cx="24" cy="21.5" r="3.2" fill="#d65a70"/><circle cx="24" cy="21.5" r="1.8" fill="#27304a"/><circle cx="40" cy="21.5" r="3.2" fill="#d65a70"/><circle cx="40" cy="21.5" r="1.8" fill="#27304a"/><path d="M27 26 Q32 22 37 26 L32 35Z" fill="#d65a70"/><path d="M27 58 v4 M37 58 v4" stroke="#d65a70" stroke-width="2.5" stroke-linecap="round"/></svg>';
 
 /* ================= 状態 ================= */
-const S = { ready:false, uid:null, isOwner:false, avatar:null, x:wx(138.2), y:wy(34.2), tx:null, ty:null,
+const S = { ready:false, uid:null, isOwner:false, avatar:null, name:'', x:wx(138.2), y:wy(34.2), tx:null, ty:null,
   journal:[], profile:{}, meta:{}, book:null, books:[], purch:[], z:2.4, near:null, dlg:null, sheet:null, busy:false, chips:[], working:false, news:0 };
 let db = null, user = null, sample = null, saveQ = Promise.resolve();
 
@@ -502,6 +502,7 @@ const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 let toastT;
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => t.style.display = 'none', 4600); }
 
+const myName = () => S.name || (S.profile || {}).callName || '';
 const userEntries = () => S.journal.filter(e => e.r === 'u');
 const userTurns = () => userEntries().length;
 const userChars = () => userEntries().reduce((n, e) => n + e.c.length, 0);
@@ -512,7 +513,7 @@ const keepLocal = () => { if (db && S.uid) return; try { localStorage.setItem('k
 
 function save(kind){
   let body;
-  if (kind === 'me') body = { avatar:S.avatar, x:Math.round(S.x), y:Math.round(S.y), z:+S.z.toFixed(2), meta:plain(S.meta), profile:plain(S.profile) };
+  if (kind === 'me') body = { avatar:S.avatar, name:S.name, x:Math.round(S.x), y:Math.round(S.y), z:+S.z.toFixed(2), meta:plain(S.meta), profile:plain(S.profile) };
   else if (kind === 'journal'){ let es = S.journal.slice(-400); while (es.length > 40 && JSON.stringify(es).length > 180000) es = es.slice(20); body = { entries: es }; }
   else { if (!S.book) return Promise.resolve(false); body = plain(S.book); }
   if (!db || !S.uid){ try { localStorage.setItem('kk-' + kind, JSON.stringify(body)); return Promise.resolve(true); } catch { return Promise.resolve(false); } }
@@ -572,7 +573,7 @@ function aiView(){ if (S.sheet && S.sheet.kind === 'fumi' && S.sheet.tab === 'ai
 /* ================= 文章エンジン ================= */
 function profileText(){
   const p = S.profile || {}, out = [];
-  if (p.callName) out.push('呼び名: ' + p.callName);
+  if (myName()) out.push('呼び名: ' + myName());
   if (p.speech) out.push('話し方: ' + p.speech);
   if (p.likes?.length) out.push('好きなもの: ' + p.likes.join('、'));
   if (p.people?.length) out.push('出てきた人: ' + p.people.map(x => x.name + (x.relation ? '(' + x.relation + ')' : '')).join('、'));
@@ -582,12 +583,35 @@ function profileText(){
 }
 function daypart(){ const d = new Date(), hr = d.getHours(); return `${d.getMonth() + 1}月${d.getDate()}日の${hr < 5 ? '深夜' : hr < 11 ? '朝' : hr < 17 ? '昼' : hr < 20 ? '夕方' : '夜'}`; }
 
-const ASK_LOCAL = ['それはいつのことか', 'どこでのことか', '誰と一緒だったか', 'そのときどんな気持ちだったか', 'そのあとどうなったか', 'きっかけは何だったか', 'いちばん印象に残った場面はどこか', 'どのくらい続けているか', 'なぜそうしようと思ったか', 'それは自分にとってどんな意味があるか'];
+const ASK_LOCAL = ['それはいつのことか', 'どこでのことか', '誰と一緒だったか', 'そのときどんな気持ちだったか', 'そのあとどうなったか', 'きっかけは何だったか', 'いちばん印象に残った場面はどこか', 'どのくらい続けているか', 'なぜそうしようと思ったか', 'そのときまわりはどんな様子だったか'];
+const ACK_LOCAL = ['そっかあ。', 'うんうん。', 'へえ、そうなんだ。', 'なるほどねえ。', 'そうだったんだね。', 'ふむふむ。'];
+const ASKQ_LOCAL = ['それって、いつ頃のこと？', 'それは、どこでのこと？', 'そのとき、誰か一緒にいた？', 'そのとき、どんな気持ちだった？', 'そのあと、どうなったの？', 'きっかけは何だったの？', 'いちばん印象に残ってる場面は？', 'どうしてそうしようと思ったの？', 'そのとき、まわりはどんな様子だった？', 'もう少しくわしく聞いてもいい？'];
+/* 端末内AIでは、最初の声かけはAIに書かせない(場所の説明と自分を混同するため)。用意した文を組み合わせる */
+function localOpen(p){
+  const here = S.journal.filter(e => e.p === p.id), mine = here.filter(e => e.r === 'u'), asked = here.filter(e => e.r === 'a').slice(-4).map(e => e.c);
+  if (!mine.length && !asked.length) return p.qs[0];
+  const nm = myName() ? myName() + '、' : '', t = p.theme.split('・')[0], last = mine.length ? mine[mine.length - 1].c.replace(/\s+/g, ' ').slice(0, 22) : '';
+  const hello = pick([`${nm}また来てくれたんだね。`, `${nm}おかえり。`, `お、${nm}待ってたよ。`, `${nm}今日も来てくれてうれしいな。`]);
+  const recall = last.length > 5 && Math.random() < .6 ? `このあいだは「${last}${last.length >= 22 ? '…' : ''}」って話してくれたよね。` : '';
+  const qs = [`「${t}」の話、今日も聞かせて。いちばん最近のことは？`, `「${t}」って聞いて、いま最初に浮かぶのは何？`, `「${t}」のことで、まだ話してないことはある？`, `今日は「${t}」の、昔の話を聞いてもいい？ いちばん古い思い出は何？`, `「${t}」のことで、誰かの顔が浮かんだりする？`, `前の話の続きでもいいよ。あれから何か変わった？`, `「${t}」のことで、最近ちょっと考えが変わったことってある？`];
+  const fresh = qs.filter(q => !asked.some(a => a.includes(q)));
+  return hello + recall + pick(fresh.length ? fresh : qs);
+}
+/* 端末内AIの返事を点検する。おかしな質問(自分のことを聞く、場所の説明を聞く、同じことを繰り返す)は、用意した質問に差し替える */
+function tidyLocal(p, text){
+  const said = S.journal.slice(S.dlg.from).filter(e => e.r === 'a').map(e => e.c);
+  const sents = (String(text || '').replace(/\s+/g, ' ').match(/[^。！？!?]+[。！？!?]+/g) || []).map(x => x.trim());
+  const self = /(わたし|あたし|ぼく|おれ|わし|おいら|わたくし|私|僕|俺)/;
+  let ack = sents.find(x => !/[？?]$/.test(x)) || '', q = sents.find(x => /[？?]$/.test(x)) || '';
+  if (!ack || ack.length > 50 || ack.includes(p.name) || said.some(x => x.includes(ack))) ack = pick(ACK_LOCAL);
+  if (!q || q.length > 60 || self.test(q) || q.includes(p.name) || said.some(x => x.includes(q))){ const left = ASKQ_LOCAL.filter(x => !said.some(y => y.includes(x))); q = pick(left.length ? left : ASKQ_LOCAL); }
+  return ack + q;
+}
 function npcPromptLocal(p, mode){
   const here = S.journal.filter(e => e.p === p.id);
   const asked = here.filter(e => e.r === 'a').slice(-3).map(e => '・' + e.c.slice(0, 60)).join('\n');
   const session = S.journal.slice(S.dlg.from).slice(-6).map(e => (e.r === 'u' ? '相手: ' : p.npc.name + ': ') + e.c.slice(0, 200)).join('\n');
-  const pr = S.profile || {}, who = [pr.callName && '呼び名は' + pr.callName, pr.speech, pr.facts && pr.facts.slice(0, 5).join('、')].filter(Boolean).join('。');
+  const pr = S.profile || {}, who = [myName() && '呼び名は' + myName(), pr.speech, pr.facts && pr.facts.slice(0, 5).join('、')].filter(Boolean).join('。');
   const head = `あなたは「${p.npc.name}」という${p.npc.kind}のキャラクター(中身はAI)で、${p.name}(${p.country})に住んでいる。旅人(相手)の話を聞くのが好き。
 口調: ${p.npc.voice}
 ${who ? '相手について知っていること: ' + who + '\n' : ''}`;
@@ -662,7 +686,7 @@ async function npcSpeak(mode){
   const p = S.dlg.p;
   S.busy = true; S.chips = []; renderDialog();
   let reply = '', chips = [];
-  if (sample){
+  if (sample && !(sample.local && mode === 'open')){
     try{
       const r = await sample(npcPrompt(p, mode, pick(ANGLES)), { cache:false, onText: ({text}) => {
         const b = $('#pending'); if (!b) return;
@@ -679,6 +703,7 @@ async function npcSpeak(mode){
   if (!chips.length) chips = ['うん', 'うーん、どうだろ', 'もう少しくわしく話すね'];
   if (sample && sample.local) reply = reply.split(/\n\s*(?:相手|語り手)[:：]/)[0].split('\n').filter(Boolean).slice(0, 2).join('\n').replace(new RegExp('^' + p.npc.name + '[:：]\\s*'), '');
   reply = reply.replace(/^[「『]|[」』]$/g, '').slice(0, 400);
+  if (sample && sample.local) reply = mode === 'open' ? localOpen(p) : tidyLocal(p, reply);
   S.journal.push({ p:p.id, r:'a', c:reply, t:Date.now() });
   S.chips = chips; S.busy = false; save('journal'); renderDialog();
   if (mode === 'reply') background();
@@ -898,9 +923,12 @@ function renderSheet(){
 function sheetPick(){
   const first = !S.avatar;
   return [
-    h('div', { class:'shead' }, h('h2', null, first ? '旅に出るキャラクターを選んでください' : 'キャラクターを変える'),
+    h('div', { class:'shead' }, h('h2', null, first ? '名前とキャラクターを決めてください' : '名前・キャラクターを変える'),
       !first ? h('button', { class:'btn ghost x', type:'button', onclick:closeSheet }, '旅に戻る') : null),
     h('p', { class:'lead' }, first ? '世界の名所を歩いて、そこに住む住人たちと話します。話したことは、相棒の文鳥「ふみ」がいつのまにか一冊の本にまとめます。' : 'いつでも変えられます。'),
+    h('label', { class:'f', htmlFor:'myname', style:'max-width:22em' }, 'あなたの名前（住人たちが呼ぶ名前。あとで変えられます）',
+      h('input', { id:'myname', type:'text', maxLength:12, value:S.name, placeholder:'例：ゆうき', autocomplete:'off', oninput:e => { S.name = e.target.value.trim(); }, onchange:() => { if (S.avatar) save('me'); } })),
+    h('p', { class:'pen', style:'margin:0' }, first ? '名前を入れたら、キャラクターを選んでください。' : 'キャラクターを選ぶと、変更が保存されます。'),
     h('div', { class:'grid' }, AVATARS.map(a => h('button', { class:'pickb', type:'button', 'aria-pressed':String(S.avatar === a.id),
       onclick:() => { S.avatar = a.id; save('me'); closeSheet(); } }, portrait(a.sp, 96), a.label)))
   ];
@@ -1062,18 +1090,18 @@ function fumiAI(){
   ];
 }
 function fumiMemo(){
-  const p = S.profile || {}, has = p.speech || p.callName || (p.facts && p.facts.length);
+  const p = S.profile || {}, has = p.speech || myName() || (p.facts && p.facts.length);
   const row = (k, v) => v ? [h('dt', null, k), h('dd', null, v)] : null;
   return [
     fumiLine(has ? 'きみと話しやすくなるように、ぼくが覚えたことだよ。住人たちもこのメモを見て、きみに合わせて話すんだ。' : 'まだ何も覚えてないよ。何度か話すと、きみの話し方や好きなものを少しずつ覚えていくね。'),
     has ? h('div', { class:'card' }, h('dl', { class:'memo' },
-      row('呼び名', p.callName), row('話し方', p.speech), row('好きなもの', (p.likes || []).join('、')),
+      row('呼び名', myName()), row('話し方', p.speech), row('好きなもの', (p.likes || []).join('、')),
       row('出てきた人', (p.people || []).map(x => x.name + (x.relation ? '（' + x.relation + '）' : '')).join('、')),
       row('話してくれたこと', (p.facts || []).join(' / ')), row('そっとしておく話題', (p.gentle || []).join('、')))) : null,
     h('p', { class:'pen', style:'margin:0' }, `これまでに ${userTurns()} 回話しました。会話とメモを読めるのはあなただけです。`),
     h('div', { class:'row' },
       has ? h('button', { class:'btn ghost', type:'button', onclick:() => { S.profile = {}; S.meta.learnAt = userTurns(); S.meta.learnT = Date.now(); save('me'); toast('メモを忘れました。'); renderSheet(); } }, 'メモを忘れてもらう') : null,
-      h('button', { class:'btn ghost', type:'button', onclick:() => openSheet('pick') }, 'キャラクターを変える'))
+      h('button', { class:'btn ghost', type:'button', onclick:() => openSheet('pick') }, '名前・キャラクターを変える'))
   ];
 }
 
@@ -1317,6 +1345,7 @@ function draw(ts){
     const by = S.onLand ? 0 : bob(9), lift = S.onLand ? 0 : 6;
     if (!S.onLand){ ctx.beginPath(); ctx.moveTo(-26, -8 + by); ctx.quadraticCurveTo(0, 14 + by, 26, -8 + by); ctx.closePath(); ctx.fillStyle = '#a9794a'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke(); }
     critter(ctx, 0, -lift + by, 38, av.sp);
+    if (S.name) label(ctx, S.name, 0, 17, 12);
     const fx = 4, fy = -82 - lift + by + bob(3) * .4;   // 頭の上のふみ
     ctx.lineWidth = 1.5; ctx.strokeStyle = INK;
     ctx.beginPath(); ctx.ellipse(fx, fy + 4, 8, 7, 0, 0, 7); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
@@ -1365,7 +1394,7 @@ function frame(ts){
 }
 /* 住人の呼びかけ。初対面か、何度目か、時間帯、かくれ場所かで変わる */
 function hail(p){
-  const n = S.journal.filter(e => e.p === p.id && e.r === 'u').length, call = (S.profile || {}).callName, hr = new Date().getHours();
+  const n = S.journal.filter(e => e.p === p.id && e.r === 'u').length, call = myName(), hr = new Date().getHours();
   if (p.hidden && !n) return pick(['……見つかっちゃった', 'よくここが分かったね', 'しーっ。ここは内緒の場所', 'お客さんなんて、はじめてだ']);
   if (p.run) return pick(n ? ['まってまって〜！', 'いたいた！ さがしたよ', '走ってきちゃった！'] : ['まって〜！ 旅の人！', 'ちょっと、そこの人〜！', 'いま行くから動かないで！']);
   const pool = n ? ['また来てくれたんだ！', '待ってたよ', 'このあいだの続き、聞かせて', 'おかえり！', '今日はどんな話？', 'あ、ちょうどよかった'] : ['はじめまして！', 'やあ、旅の人', 'ねえねえ、ちょっといい？', 'いいところに来たね', '聞きたいことがあるんだ', 'こっちこっち！', 'そこの旅の人〜', 'ひとつ聞いてもいい？'];
@@ -1438,7 +1467,7 @@ async function boot(){
   if (db && S.uid){
     try{
       const [m, j, b, oldTalk] = await Promise.all([pdoc('me').get(), pdoc('journal').get(), pdoc('book').get(), pdoc('talk').get()]);
-      if (m.exists){ const d = plain(m.data()); S.avatar = d.avatar || null; if (d.x) { S.x = d.x; S.y = d.y; } if (d.z) S.z = d.z; S.meta = d.meta || {}; S.profile = d.profile || {}; }
+      if (m.exists){ const d = plain(m.data()); S.avatar = d.avatar || null; S.name = d.name || ''; if (d.x) { S.x = d.x; S.y = d.y; } if (d.z) S.z = d.z; S.meta = d.meta || {}; S.profile = d.profile || {}; }
       if (j.exists) S.journal = plain(j.data().entries || []);
       else if (oldTalk.exists) S.journal = plain(oldTalk.data().messages || []).filter(x => x.content && x.kind !== 'proposal' && !x.nudge).map(x => ({ p:'fuji', r:x.role === 'user' ? 'u' : 'a', c:x.content, t:x.t || 0 }));
       if (b.exists) S.book = plain(b.data());
@@ -1446,7 +1475,7 @@ async function boot(){
   }
   if (!(db && S.uid)){
     const L = k => { try { return JSON.parse(localStorage.getItem('kk-' + k) || 'null'); } catch { return null; } };
-    const d = L('me'); if (d){ S.avatar = d.avatar || null; if (d.x){ S.x = d.x; S.y = d.y; } if (d.z) S.z = d.z; S.meta = d.meta || {}; S.profile = d.profile || {}; }
+    const d = L('me'); if (d){ S.avatar = d.avatar || null; S.name = d.name || ''; if (d.x){ S.x = d.x; S.y = d.y; } if (d.z) S.z = d.z; S.meta = d.meta || {}; S.profile = d.profile || {}; }
     const j = L('journal'); if (j) S.journal = j.entries || [];
     S.book = L('book'); S.books = L('books') || []; S.purch = L('purch') || [];
   }
