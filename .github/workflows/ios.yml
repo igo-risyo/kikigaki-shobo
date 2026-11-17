@@ -1,0 +1,29 @@
+name: iPhoneアプリの組み立て
+
+on:
+  push:
+    paths:
+      - 'ios/**'
+      - 'index.html'
+      - 'land.js'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode の版を確認
+        run: xcodebuild -version
+      - name: XcodeGen を入れる
+        run: brew install xcodegen
+      - name: サイト本体をアプリに入れる
+        run: mkdir -p ios/Kikigaki/Web && cp index.html land.js ios/Kikigaki/Web/
+      - name: プロジェクトを作る
+        run: cd ios && xcodegen generate
+      - name: 組み立てる（シミュレーター向け、署名なし）
+        run: |
+          set -o pipefail
+          cd ios
+          xcodebuild -project Kikigaki.xcodeproj -scheme Kikigaki -sdk iphonesimulator -configuration Debug -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 60

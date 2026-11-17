@@ -1,0 +1,4 @@
+# サイト本体(index.html, land.js)は組み立てのときにリポジトリの先頭からコピーする
+Kikigaki/Web/
+*.xcodeproj
+build/

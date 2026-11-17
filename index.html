@@ -442,6 +442,19 @@ let db = null, user = null, sample = null, saveQ = Promise.resolve();
    自前のサーバー(kikigaki-ai-server.mjs)のURLを endpoint に入れるだけで、会話・学習・本の執筆がすべて同じ文章エンジンで動く。
    APIキーはサーバー側だけに置き、アプリには入れない。 */
 const APP_AI = { endpoint:'', appToken:'' };
+const NATIVE = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.kikigaki;   // iPhoneアプリの中で開いているときだけある
+function nativeAI(){
+  const call = async (prompt, max) => {
+    let r;
+    try { r = await NATIVE.postMessage({ type:'text', prompt, max:max || 200 }); } catch (e) { throw { code:'unavailable', message:String(e) }; }
+    if (!r || !r.ok) throw { code:(r && r.code) || 'unavailable', message:(r && r.reason) || '' };
+    return String(r.text || '');
+  };
+  const ai = async (prompt, o = {}) => { const text = await call(prompt, o.max); if (o.onText) o.onText({ text, delta:text }); return { text:text.trim(), truncated:false }; };
+  ai.json = async (prompt, o = {}) => { const t = (await call(prompt + '\n\nJSONだけを出力する。前置きや説明は書かない。', o.max || 600)).replace(/```json|```/g, ''); const a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b <= a) throw { code:'failed', message:'no json' }; return JSON.parse(t.slice(a, b + 1)); };
+  ai.local = true; ai.apple = true;      // 端末内AIなので、短い指示と一章ずつの執筆を使う
+  return ai;
+}
 function makeAI(native){
   if (native) return native;
   if (!APP_AI.endpoint) return null;
@@ -1016,6 +1029,11 @@ function fumiShop(){
   ];
 }
 function fumiAI(){
+  if (NATIVE) return [
+    fumiLine(sample ? 'ぼくも住人たちも、いまはこのiPhoneの中のAIで考えてるよ。話したことは外に出ないよ。' : 'いまはAIが使えないみたい。下を確かめてみてね。'),
+    h('p', { class:'note' }, sample ? 'iPhoneに入っているAI（Apple Intelligence）で動いています。ダウンロードも料金もいりません。' : (S.aiNote || 'いまは端末内のAIを使えません。') + ' AIが使えない間は、住人は用意したせりふで話し、本は作られません。'),
+    h('p', { class:'pen', style:'margin:0' }, '端末の中の小さなAIなので、話していないことを書いてしまうことがあります。本は読んで、違うところをふみに伝えてください。')
+  ];
   const inPreview = !!window.claude, usingLocal = sample && sample.local, usingClaude = sample && !sample.local;
   const now = usingLocal ? `いまは、この端末の中のAI（${LAI.model}）で動いています。会話は外に送られません。` : usingClaude ? 'いまは Claude につながっています（このプレビュー画面の中だけの接続です）。' : 'いまはAIにつながっていません。住人は用意したせりふで話し、本は作られません。';
   const sel = LAI.model || (IS_PHONE ? 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' : LOCAL_MODELS[0].id);
@@ -1415,6 +1433,7 @@ async function boot(){
   const use = n => { try { return window.claude && window.claude.use ? window.claude.use(n) : Promise.resolve(null); } catch { return Promise.resolve(null); } };
   try { [db, user, sample] = await Promise.all([use('db'), use('user'), use('sample')]); } catch {}
   sample = makeAI(sample);
+  if (NATIVE && !sample){ try { const st = await NATIVE.postMessage({ type:'status' }); if (st && st.available) sample = nativeAI(); else S.aiNote = (st && st.reason) || 'いまは端末内のAIを使えません。'; } catch { S.aiNote = 'いまは端末内のAIを使えません。'; } }
   try { S.uid = user ? await user.id() : null; S.isOwner = user ? !!(await user.isOwner()) : false; } catch {}
   if (db && S.uid){
     try{
@@ -1433,7 +1452,7 @@ async function boot(){
   }
   S.ready = true;
   if (!S.avatar) openSheet('pick');
-  if (!sample && LAI.model && navigator.gpu && !window.claude) loadLocalAI(LAI.model);
+  if (!sample && LAI.model && navigator.gpu && !window.claude && !NATIVE) loadLocalAI(LAI.model);
   if (db){
     db.collection('books').onSnapshot(s => { S.books = s.docs.map(d => ({ id:d.id, ...plain(d.data()) })); if (S.sheet && S.sheet.kind === 'fumi' && S.sheet.tab === 'shop' && !S.busy) renderSheet(); }, () => {});
     db.collection('purchases').onSnapshot(s => { S.purch = s.docs.map(d => ({ id:d.id, items:(d.data().items || []).slice() })); }, () => {});
