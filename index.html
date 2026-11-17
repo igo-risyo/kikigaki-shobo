@@ -617,6 +617,18 @@ function localOpen(p){
   return hello + recall + pick(fresh.length ? fresh : qs);
 }
 /* 端末内AIの返事を点検する。おかしな質問(自分のことを聞く、場所の説明を聞く、同じことを繰り返す)は、用意した質問に差し替える */
+/* 住人のほうから会話を切り上げるときの、別れのひとこと */
+function byeLine(){
+  const nm = myName() ? myName() + '、' : '';
+  return pick([`${nm}今日は話してくれてありがとう。またいつでも寄ってね。`, 'いい話を聞かせてもらったよ。続きはまた今度ね。', `${nm}話してくれてありがとう。ふみがちゃんと書きとめてくれるよ。またね。`, '今日はここまでにしようか。また聞かせてね。', `よくわかったよ。${nm}気をつけて旅をつづけてね。`]);
+}
+function closeLocal(p, text){
+  const said = S.journal.filter(e => e.p === p.id && e.r === 'a').slice(-14).map(e => e.c);
+  const sents = (String(text || '').replace(/\s+/g, ' ').match(/[^。！？!?]+[。！？!?]+/g) || []).map(x => x.trim());
+  let ack = sents.find(x => !/[？?]$/.test(x)) || '';
+  if (!ack || ack.length > 50 || ack.includes(p.name) || said.some(x => x.includes(ack))) ack = pick(ACK_LOCAL);
+  return ack + byeLine();
+}
 function tidyLocal(p, text){
   /* 相手が「とくにない」「うん」のように話を広げないときは、同じ話を掘らずに話題を変える */
   const lastU = (S.journal.slice(S.dlg.from).filter(e => e.r === 'u').pop() || { c:'' }).c.trim();
@@ -650,6 +662,11 @@ ${who ? '相手について知っていること: ' + who + '\n' : ''}`;
 相手が訪ねてきた。あなたから先に声をかける。この場所のことを一言話してから、「${p.theme}」について答えやすい質問を一つする。全部で2文。
 お手本: ${p.qs[0]}
 ${asked ? '前にした質問(同じ聞き方はしない):\n' + asked + '\n' : ''}自然な日本語で、${p.npc.name}のせりふだけを書く。`;
+  if (mode === 'close') return head + `相手が最後に言ったことを、短く受け止める一文だけを書く。「へえ、〜なんだね。」「そっか、〜だったんだ。」のように言い切る。質問はしない。相手が言っていないことを付け足さない。
+いまの会話:
+${session}
+
+${p.npc.name}のせりふを一文だけ書く。`;
   const told = S.journal.slice(S.dlg.from).filter(e => e.r === 'u').map(e => '・' + e.c.slice(0, 120)).join('\n');
   const cands = freshAsks().slice().sort(() => Math.random() - .5).slice(0, 4).map(a => '・' + a.hint).join('\n');
   const long = S.journal.slice(S.dlg.from).slice(-10).map(e => (e.r === 'u' ? '相手: ' : p.npc.name + ': ') + e.c.slice(0, 200)).join('\n');
@@ -707,7 +724,7 @@ ${asked || '(まだない)'}
 今回のやりとり:
 ${session || '(これから)'}
 
-今回すること: ${mode === 'open' ? '語り手が訪ねてきた。あなたから先に声をかけ、主題についての問いを一つ渡す。' : '語り手の最後の発言に返事をする。'}
+今回すること: ${mode === 'open' ? '語り手が訪ねてきた。あなたから先に声をかけ、主題についての問いを一つ渡す。' : mode === 'close' ? '会話をあなたのほうから気持ちよく切り上げる。語り手の最後の発言を具体的に受け止め、話してくれたお礼と別れのひとことを言う。今回は問いを出さない。引き止めない。1〜2文。(深刻な悩みが出ていた場合だけは、別れの挨拶より、身近な人や相談窓口を勧める言葉を優先する)' : '語り手の最後の発言に返事をする。問いは一つだけで、話を無理に長引かせない。'}
 
 出力の形(この形だけ。名前の見出しは書かない):
 せりふ
@@ -735,25 +752,28 @@ async function npcSpeak(mode){
   }
   if (!S.dlg || S.dlg.p !== p){ S.busy = false; return; }
   if (!reply){
-    reply = mode === 'open' ? pick(p.qs) : pick(['うんうん。それで、そのあとどうなったの？', 'へえ。そのとき、そばには誰がいた？', 'そっか。そのとき、どんな気持ちだった？', 'なるほどねえ。もう少しくわしく聞いてもいい？']);
+    reply = mode === 'open' ? pick(p.qs) : mode === 'close' ? pick(ACK_LOCAL) + byeLine() : (() => { const a = pick(freshAsks()); S.dlg.used.push(a.k); return pick(ACK_LOCAL) + a.q; })();
     chips = ['うん', 'うーん、どうだろ', 'また今度話すね'];
   }
   if (!chips.length) chips = ['うん', 'うーん、どうだろ', 'もう少しくわしく話すね'];
   if (sample && sample.local) reply = reply.split(/\n\s*(?:相手|語り手)[:：]/)[0].split('\n').filter(Boolean).slice(0, 2).join('\n').replace(new RegExp('^' + p.npc.name + '[:：]\\s*'), '');
   reply = reply.replace(/^[「『]|[」』]$/g, '').slice(0, 400);
-  if (sample && sample.local) reply = mode === 'open' ? localOpen(p) : tidyLocal(p, reply);
+  if (sample && sample.local) reply = mode === 'open' ? localOpen(p) : mode === 'close' ? closeLocal(p, reply) : tidyLocal(p, reply);
   S.journal.push({ p:p.id, r:'a', c:reply, t:Date.now() });
-  S.chips = chips; S.busy = false; save('journal'); renderDialog();
-  if (mode === 'reply') background();
+  S.chips = mode === 'close' ? [] : chips; S.busy = false; save('journal');
+  if (mode === 'close'){ S.dlg.done = true; const d = S.dlg; setTimeout(() => { if (S.dlg === d) closeDialog(); }, Math.min(9000, 3200 + reply.length * 90)); }
+  renderDialog();
+  if (mode !== 'open') background();
 }
 function send(preset){
   const ta = $('#say');
   const text = (typeof preset === 'string' ? preset : ta.value).trim();
   if (!text || S.busy || !S.dlg) return;
   const before = openCount();
+  if (S.dlg.done) return;
   S.journal.push({ p:S.dlg.p.id, r:'u', c:text.slice(0, 1200), t:Date.now() });
   if (openCount() > before){ const fresh = PLACES.filter(p => !p.hidden && p.need === userTurns()).map(p => p.name).join('と'); toast(`ふみ「新しい場所に行けるようになったよ。${fresh}！」`); S.hudKey = ''; }
-  npcSpeak('reply');
+  npcSpeak(S.journal.slice(S.dlg.from).filter(e => e.r === 'u').length >= S.dlg.limit ? 'close' : 'reply');
 }
 
 /* 語りのたびに裏で学び、材料がそろえば勝手に本にする */
@@ -916,7 +936,7 @@ ${req.slice(0, 1500)}`, { modelTier:'complex' });
 function portrait(sp, size){ const c = h('canvas', { width:size * 2, height:size * 2, 'aria-hidden':'true' }); critter(c.getContext('2d'), size, size * 2 - 3, size * .82, sp); return c; }
 function openDialog(p){
   if (S.dlg || S.sheet || !S.avatar) return;
-  S.dlg = { p, from:S.journal.length, t0:Date.now() }; S.tx = S.ty = null;
+  S.dlg = { p, from:S.journal.length, t0:Date.now(), limit:2 + (Math.random() < .5 ? 1 : 0) };   // 2〜3往復で住人のほうから切り上げる S.tx = S.ty = null;
   $('#hint').hidden = true; drawHud(); renderDialog(); save('me');
   npcSpeak('open');
 }
@@ -929,20 +949,20 @@ function renderDialog(){
   d.replaceChildren(
     h('div', { class:'dhead' }, portrait(p.npc.sp, 84),
       h('div', null, h('b', null, p.npc.name), h('span', { class:'tag' }, p.theme), h('div', { class:'sub' }, `${p.name}（${p.country}）の${p.npc.kind}`)),
-      h('button', { class:'btn ghost x', type:'button', onclick:closeDialog }, 'またね')),
+      h('button', { class:'btn ghost x', type:'button', onclick:closeDialog }, 'とじる')),
     h('div', { class:'log' },
       lines.slice(-6).map(e => h('div', { class:'m ' + e.r }, e.c)),
       S.busy ? h('div', { class:'m a', id:'pending' }, '……') : null),
     !S.busy && S.chips.length ? h('div', { class:'chips' }, S.chips.map(c => h('button', { class:'chip', type:'button', onclick:() => send(c) }, c))) : null,
-    h('form', { class:'say', onsubmit:e => { e.preventDefault(); send(); } },
+    S.dlg.done ? h('div', { class:'row' }, h('button', { class:'btn', type:'button', onclick:closeDialog }, 'またね')) : h('form', { class:'say', onsubmit:e => { e.preventDefault(); send(); } },
       h('textarea', { id:'say', rows:2, maxLength:1200, 'aria-label':p.npc.name + 'に話す', placeholder:'ひとことでも、長くても',
         onkeydown:e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); } } }),
       h('button', { class:'btn', type:'submit', disabled:S.busy }, S.busy ? '考え中…' : '話す')),
     !sample && S.ready ? h('p', { class:'note' }, 'いまはAIにつながっていないため、住人は用意したせりふで話します。', h('button', { class:'chip', type:'button', style:'margin-left:8px', onclick:() => openSheet('fumi', 'ai') }, 'AIの設定をひらく')) : null
   );
   d.hidden = false;
-  const ta = $('#say'); if (keep && !lines.length) ta.value = keep;
-  if (!S.busy) ta.focus({ preventScroll:true });
+  const ta = $('#say'); if (ta && keep && !lines.length) ta.value = keep;
+  if (ta && !S.busy) ta.focus({ preventScroll:true });
   d.scrollTop = d.scrollHeight;
 }
 
