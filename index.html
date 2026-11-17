@@ -524,12 +524,14 @@ function save(kind){
 /* ================= 端末の中で動くAI (WebLLM) =================
    モデルを一度ダウンロードすると、会話も学習も本の執筆も、この端末の中だけで動く。キーも料金もサーバーも不要。 */
 const LOCAL_MODELS = [
-  { id:'gemma-2-2b-jpn-it-q4f16_1-MLC', label:'日本語向け・標準（必要メモリ 約1.9GB）' },
-  { id:'Qwen2.5-3B-Instruct-q4f16_1-MLC', label:'文章力重視（必要メモリ 約2.5GB）' },
+  { id:'gemma-4-E2B-it-q4f16_1-MLC', label:'標準・会話重視（必要メモリ 約3.4GB）' },
+  { id:'Qwen3.5-4B-q4f16_1-MLC', label:'文章力重視（必要メモリ 約3.9GB）' },
+  { id:'gemma-2-2b-jpn-it-q4f16_1-MLC', label:'軽め・以前の標準（必要メモリ 約1.9GB）' },
   { id:'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', label:'軽量・スマホ向け（必要メモリ 約1.6GB）' },
   { id:'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', label:'最軽量・古めのスマホ向け（必要メモリ 約0.9GB。日本語は弱め）' },
-  { id:'Qwen2.5-7B-Instruct-q4f16_1-MLC', label:'高性能パソコン向け（必要メモリ 約5.1GB）' }
+  { id:'Qwen3.5-9B-q4f16_1-MLC', label:'高性能パソコン向け（必要メモリ 約6.4GB）' }
 ];
+const BEST_MODEL = () => IS_PHONE ? 'gemma-2-2b-jpn-it-q4f16_1-MLC' : 'gemma-4-E2B-it-q4f16_1-MLC';
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; aiView(); });
@@ -537,7 +539,7 @@ const LAI = { engine:null, state:'off', progress:0, text:'', err:'', model:(() =
 async function loadLocalAI(modelId){
   if (LAI.state === 'loading') return;
   if (!navigator.gpu){ LAI.state = 'nogpu'; return aiView(); }
-  LAI.state = 'loading'; LAI.progress = 0; LAI.text = '準備しています…'; LAI.err = ''; aiView();
+  LAI.tried = modelId; LAI.state = 'loading'; LAI.progress = 0; LAI.text = '準備しています…'; LAI.err = ''; aiView();
   const cb = r => { LAI.progress = r.progress || 0; LAI.text = r.text || ''; const b = $('#aibar'), t = $('#aitext'); if (b) b.style.width = Math.round(LAI.progress * 100) + '%'; if (t) t.textContent = LAI.text; };
   try{
     const lib = await import('./web-llm.js');
@@ -556,13 +558,13 @@ function localAI(){
   let chain = Promise.resolve();                       // 端末内AIは一度に一つずつ
   const run = fn => { const p = chain.then(fn, fn); chain = p.catch(() => {}); return p; };
   const ai = (prompt, o = {}) => run(async () => {
-    const stream = await LAI.engine.chat.completions.create({ messages:[{ role:'user', content:prompt }], stream:true, temperature:o.max ? .7 : .55, top_p:.9, max_tokens:o.max || 160 });
+    const stream = await LAI.engine.chat.completions.create({ messages:[{ role:'user', content:prompt }], stream:true, temperature:o.max ? .7 : .55, top_p:.9, max_tokens:o.max || 160, ...(/Qwen3/.test(LAI.model) ? { extra_body:{ enable_thinking:false } } : {}) });
     let text = '';
     for await (const ch of stream){ const d = (ch.choices[0] && ch.choices[0].delta && ch.choices[0].delta.content) || ''; text += d; if (o.onText) o.onText({ text, delta:d }); }
     return { text:text.replace(/<think>[\s\S]*?<\/think>/g, '').trim(), truncated:false };
   });
   ai.json = (prompt, o = {}) => run(async () => {
-    const r = await LAI.engine.chat.completions.create({ messages:[{ role:'user', content:prompt }], temperature:.3, max_tokens:o.max || 600, response_format:{ type:'json_object' } });
+    const r = await LAI.engine.chat.completions.create({ messages:[{ role:'user', content:prompt }], temperature:.3, max_tokens:o.max || 600, response_format:{ type:'json_object' }, ...(/Qwen3/.test(LAI.model) ? { extra_body:{ enable_thinking:false } } : {}) });
     return JSON.parse(r.choices[0].message.content);
   });
   ai.local = true;
@@ -583,9 +585,26 @@ function profileText(){
 }
 function daypart(){ const d = new Date(), hr = d.getHours(); return `${d.getMonth() + 1}月${d.getDate()}日の${hr < 5 ? '深夜' : hr < 11 ? '朝' : hr < 17 ? '昼' : hr < 20 ? '夕方' : '夜'}`; }
 
-const ASK_LOCAL = ['それはいつのことか', 'どこでのことか', '誰と一緒だったか', 'そのときどんな気持ちだったか', 'そのあとどうなったか', 'きっかけは何だったか', 'いちばん印象に残った場面はどこか', 'どのくらい続けているか', 'なぜそうしようと思ったか', 'そのときまわりはどんな様子だったか'];
 const ACK_LOCAL = ['そっかあ。', 'うんうん。', 'へえ、そうなんだ。', 'なるほどねえ。', 'そうだったんだね。', 'ふむふむ。'];
-const ASKQ_LOCAL = ['それって、いつ頃のこと？', 'それは、どこでのこと？', 'そのとき、誰か一緒にいた？', 'そのとき、どんな気持ちだった？', 'そのあと、どうなったの？', 'きっかけは何だったの？', 'いちばん印象に残ってる場面は？', 'どうしてそうしようと思ったの？', 'そのとき、まわりはどんな様子だった？', 'もう少しくわしく聞いてもいい？'];
+/* 質問の種類。hint=AIへの指示、q=用意した質問、said=相手がもう話していると見なす言葉、is=AIの質問がこの種類かを見分ける言葉 */
+const ASKS = [
+  { k:'when', hint:'それはいつのことか', q:'それって、いつ頃のこと？', said:/今日|昨日|おととい|今朝|昨夜|先週|先月|去年|今年|\d+年|\d+歳|頃|ころ|のとき|の時/, is:/いつ|何歳|何年/ },
+  { k:'where', hint:'どこでのことか', q:'それは、どこでのこと？', said:/家|会社|学校|店|駅|公園|実家|職場|部屋|病院|会場/, is:/どこ/ },
+  { k:'who', hint:'誰と一緒だったか', q:'そのとき、誰か一緒にいた？', said:/一人|ひとり|友|母|父|親|妻|夫|彼|姉|兄|妹|弟|先生|同僚|家族|一緒|仲間|子ども|上司/, is:/誰|だれ|一緒/ },
+  { k:'feel', hint:'そのときどんな気持ちだったか', q:'そのとき、どんな気持ちだった？', said:/うれし|嬉し|悲し|楽し|つら|辛|悔し|怖|不安|安心|ほっと|気持ち|寂し|腹が立|感動|緊張/, is:/気持ち|どう思|どう感じ/ },
+  { k:'after', hint:'そのあとどうなったか', q:'そのあと、どうなったの？', said:/そのあと|その後|それから|結局/, is:/そのあと|その後|それから/ },
+  { k:'trigger', hint:'きっかけは何だったか', q:'きっかけは何だったの？', said:/きっかけ|理由は/, is:/きっかけ/ },
+  { k:'why', hint:'なぜそうしようと思ったか', q:'どうしてそうしようと思ったの？', said:/から。|からです|ので|ために|ため。/, is:/なぜ|どうして|なんで/ },
+  { k:'scene', hint:'いちばん印象に残った場面はどこか', q:'いちばん印象に残ってる場面は？', said:/印象/, is:/印象|場面/ },
+  { k:'around', hint:'そのときまわりはどんな様子だったか', q:'そのとき、まわりはどんな様子だった？', said:/まわり|周り/, is:/まわり|周り|様子/ },
+  { k:'more', hint:'その話のいちばん大事なところ', q:'その話で、いちばん大事なところを教えて？', said:/大事/, is:/大事|くわしく/ }
+];
+/* この会話でまだ聞いておらず、相手もまだ話していない種類だけを残す */
+function freshAsks(){
+  const used = S.dlg.used = S.dlg.used || [], told = S.journal.slice(S.dlg.from).filter(e => e.r === 'u').map(e => e.c).join('。');
+  const left = ASKS.filter(a => !used.includes(a.k) && !a.said.test(told));
+  return left.length ? left : ASKS.filter(a => !used.includes(a.k)).concat(ASKS).slice(0, 3);
+}
 /* 端末内AIでは、最初の声かけはAIに書かせない(場所の説明と自分を混同するため)。用意した文を組み合わせる */
 function localOpen(p){
   const here = S.journal.filter(e => e.p === p.id), mine = here.filter(e => e.r === 'u'), asked = here.filter(e => e.r === 'a').slice(-4).map(e => e.c);
@@ -599,12 +618,23 @@ function localOpen(p){
 }
 /* 端末内AIの返事を点検する。おかしな質問(自分のことを聞く、場所の説明を聞く、同じことを繰り返す)は、用意した質問に差し替える */
 function tidyLocal(p, text){
-  const said = S.journal.slice(S.dlg.from).filter(e => e.r === 'a').map(e => e.c);
+  /* 相手が「とくにない」「うん」のように話を広げないときは、同じ話を掘らずに話題を変える */
+  const lastU = (S.journal.slice(S.dlg.from).filter(e => e.r === 'u').pop() || { c:'' }).c.trim();
+  if (/^(とくに|特に|別に|べつに)?(ない|なし|ありません)[。.！!]*$|^(わからない|分からない|うん|はい|そうだね|そうですね|まあね)[。.！!]*$/.test(lastU)){
+    const t = p.theme.split('・')[0], asked = S.journal.filter(e => e.p === p.id && e.r === 'a').slice(-8).map(e => e.c);
+    const qs = [`「${t}」って聞いて、ほかに浮かぶことはある？`, `「${t}」のことで、誰かの顔が浮かんだりする？`, `「${t}」のことで、昔の話を聞いてもいい？ いちばん古い思い出は何？`, `「${t}」のことで、最近ちょっと変わったことってある？`, `今日はこのへんにして、また今度聞かせてくれる？`];
+    const left = qs.filter(q => !asked.some(a => a.includes(q)));
+    return pick(['そっか、じゃあ話を変えるね。', 'うん、じゃあ別のことを聞くね。', 'わかった。じゃあ、ちがう話。']) + pick(left.length ? left : qs);
+  }
+  const said = S.journal.filter(e => e.p === p.id && e.r === 'a').slice(-14).map(e => e.c), fresh = freshAsks(), used = S.dlg.used;
   const sents = (String(text || '').replace(/\s+/g, ' ').match(/[^。！？!?]+[。！？!?]+/g) || []).map(x => x.trim());
   const self = /(わたし|あたし|ぼく|おれ|わし|おいら|わたくし|私|僕|俺)/;
   let ack = sents.find(x => !/[？?]$/.test(x)) || '', q = sents.find(x => /[？?]$/.test(x)) || '';
   if (!ack || ack.length > 50 || ack.includes(p.name) || said.some(x => x.includes(ack))) ack = pick(ACK_LOCAL);
-  if (!q || q.length > 60 || self.test(q) || q.includes(p.name) || said.some(x => x.includes(q))){ const left = ASKQ_LOCAL.filter(x => !said.some(y => y.includes(x))); q = pick(left.length ? left : ASKQ_LOCAL); }
+  const kind = q ? ASKS.find(a => a.is.test(q)) : null;
+  const repeat = kind && !fresh.includes(kind);                 // もう聞いた種類、または相手がすでに話したこと
+  if (!q || q.length > 60 || self.test(q) || q.includes(p.name) || said.some(x => x.includes(q)) || repeat){ const a = pick(fresh); q = a.q; used.push(a.k); }
+  else if (kind) used.push(kind.k);
   return ack + q;
 }
 function npcPromptLocal(p, mode){
@@ -620,22 +650,30 @@ ${who ? '相手について知っていること: ' + who + '\n' : ''}`;
 相手が訪ねてきた。あなたから先に声をかける。この場所のことを一言話してから、「${p.theme}」について答えやすい質問を一つする。全部で2文。
 お手本: ${p.qs[0]}
 ${asked ? '前にした質問(同じ聞き方はしない):\n' + asked + '\n' : ''}自然な日本語で、${p.npc.name}のせりふだけを書く。`;
+  const told = S.journal.slice(S.dlg.from).filter(e => e.r === 'u').map(e => '・' + e.c.slice(0, 120)).join('\n');
+  const cands = freshAsks().slice().sort(() => Math.random() - .5).slice(0, 4).map(a => '・' + a.hint).join('\n');
+  const long = S.journal.slice(S.dlg.from).slice(-10).map(e => (e.r === 'u' ? '相手: ' : p.npc.name + ': ') + e.c.slice(0, 200)).join('\n');
   return head + `いま「${p.theme}」について相手の話を聞いている。
+相手がここまでに話したこと(これはもう聞かない):
+${told || '(まだない)'}
+
 返事の作り方(必ず2文):
-1文目: 相手が言ったことを、短く受け止める。「へえ、〜なんだね。」「そっか、〜だったんだ。」のように言い切る。質問の形にしない。
-2文目: 相手の話の続きを聞く質問を一つ。今回は「${pick(ASK_LOCAL)}」を聞く。
+1文目: 相手が最後に言ったことを、短く受け止める。「へえ、〜なんだね。」「そっか、〜だったんだ。」のように言い切る。質問の形にしない。
+2文目: 質問を一つだけ。次の中から、相手がまだ話していないことを一つ選んで聞く。
+${cands}
 守ること:
+- 相手がもう話したことを、もう一度聞かない。同じ質問をくり返さない。
 - ふつうの話し言葉で、短く、自然な日本語にする。たとえ話や、むずかしい言い回しは使わない。
 - 相手が言っていないことを付け足さない。場所の話は無理に入れない。
 - 相手がとても深刻な悩みを話したら、質問をやめて、身近な人や相談窓口に話すようやさしく勧める。
 お手本:
 相手: 今日は車を点検に出してきた。
-${p.npc.name}: へえ、車を点検に出してきたんだね。その車には、どのくらい乗っているの？
+${p.npc.name}: へえ、車を点検に出してきたんだね。どうして今日、出そうと思ったの？
 相手: 高校のとき、部活で負けて泣いた。
 ${p.npc.name}: そっか、負けて泣いたんだね。そのとき、そばには誰がいたの？
 
 いまの会話:
-${session}
+${long}
 
 ${p.npc.name}の次のせりふだけを書く。`;
 }
@@ -1064,7 +1102,7 @@ function fumiAI(){
   ];
   const inPreview = !!window.claude, usingLocal = sample && sample.local, usingClaude = sample && !sample.local;
   const now = usingLocal ? `いまは、この端末の中のAI（${LAI.model}）で動いています。会話は外に送られません。` : usingClaude ? 'いまは Claude につながっています（このプレビュー画面の中だけの接続です）。' : 'いまはAIにつながっていません。住人は用意したせりふで話し、本は作られません。';
-  const sel = LAI.model || (IS_PHONE ? 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' : LOCAL_MODELS[0].id);
+  const sel = LAI.state === 'error' && LAI.tried ? LAI.tried : BEST_MODEL();
   const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
   const mem = navigator.deviceMemory ? `メモリ 約${navigator.deviceMemory}GB以上` : 'メモリ 不明';
   const app = inPreview ? null : h('div', { class:'card' },
@@ -1082,6 +1120,7 @@ function fumiAI(){
       h('p', { class:'pen', style:'margin:0' }, `この端末: ${navigator.gpu ? 'AIを動かす機能あり' : 'AIを動かす機能なし'} ・ ${mem}` + (IS_PHONE ? ' ・ スマホでは「軽量」から試してください' : '')),
       h('label', { class:'f', htmlFor:'aimodel' }, 'モデル', h('select', { id:'aimodel', disabled:LAI.state === 'loading' }, LOCAL_MODELS.map(m => h('option', { value:m.id, selected:m.id === sel }, m.label)))),
       h('div', { class:'row' }, h('button', { class:'btn obi', type:'button', disabled:LAI.state === 'loading', onclick:() => loadLocalAI($('#aimodel').value) }, LAI.state === 'loading' ? '読み込んでいます…' : LAI.state === 'ready' ? 'このモデルに切り替える' : 'ダウンロードして使う')),
+      usingLocal && LAI.model !== BEST_MODEL() ? h('p', { class:'note' }, '会話がもっと自然な、新しい標準モデルがあります。上で「標準・会話重視」を選んで切り替えてください。') : null,
       LAI.state === 'loading' ? h('div', null, h('div', { class:'meter' }, h('i', { style:'max-width:none' }, h('b', { id:'aibar', style:'width:' + Math.round(LAI.progress * 100) + '%' }))), h('p', { class:'pen', id:'aitext', style:'margin:6px 0 0;overflow-wrap:anywhere' }, LAI.text)) : null,
       LAI.state === 'nogpu' ? h('p', { class:'note' }, 'このブラウザでは動かせません（WebGPUという機能が必要です）。パソコンのChromeかEdgeの新しい版で開いてください。') : null,
       LAI.state === 'error' ? h('p', { class:'note' }, (inPreview ? 'このプレビュー画面の中では、外からモデルを読み込めません。サイトとして公開した版で使えます。' : '読み込めませんでした。通信の状態と空きメモリを確かめて、軽いモデルで試してください。') + '（' + LAI.err + '）') : null,
